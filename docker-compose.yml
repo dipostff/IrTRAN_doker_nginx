@@ -6,7 +6,6 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: irtran-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-irtran}
@@ -25,7 +24,6 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:latest
-    container_name: keycloak
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
@@ -52,7 +50,6 @@ services:
 
   postgres:
     image: postgres:15
-    container_name: keycloak-postgres
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak
@@ -71,7 +68,6 @@ services:
     build:
       context: ./irtran_server-main
       dockerfile: Dockerfile
-    container_name: irtran-backend
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -94,6 +90,9 @@ services:
       # Каталоги загрузок: каждый привязан к своему тому (файлы «Справочник» и «Сценарии» не смешиваются)
       REFERENCE_UPLOAD_DIR: /app/uploads/reference
       SCENARIOS_UPLOAD_DIR: /app/uploads/scenarios
+      # Ретраи миграций при медленном старте MySQL
+      MIGRATION_MAX_RETRIES: ${MIGRATION_MAX_RETRIES:-20}
+      MIGRATION_RETRY_DELAY_SEC: ${MIGRATION_RETRY_DELAY_SEC:-5}
     volumes:
       # Том только для файлов вкладки «Справочник» — сохраняется при перезапуске контейнера
       - reference_uploads:/app/uploads/reference
@@ -117,7 +116,6 @@ services:
         VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost/auth}
         VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-master}
         VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-irtran-client}
-    container_name: irtran-frontend
     depends_on:
       - backend
     networks:
@@ -125,7 +123,6 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
-    container_name: irtran-nginx
     ports:
       - "80:80"
     volumes:
