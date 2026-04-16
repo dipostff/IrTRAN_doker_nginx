@@ -1,0 +1,7 @@
+{
+  "server_name": "localhost",
+  "port": 3000,
+  "use_https": false,
+  "enable_auth": true
+}
+

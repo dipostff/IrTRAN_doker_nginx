@@ -1,0 +1,2 @@
+# Скрипты для Linux-образов всегда с LF (иначе Docker на машине с core.autocrlf=true ломает entrypoint)
+docker-entrypoint.sh text eol=lf

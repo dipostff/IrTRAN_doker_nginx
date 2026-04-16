@@ -1,0 +1,12 @@
+{
+  "realm": "master",
+  "auth-server-url": "http://localhost:8080",
+  "ssl-required": "none",
+  "resource": "irtran-client",
+  "public-client": false,
+  "confidential-port": 0,
+  "verify-token-audience": false,
+  "use-resource-role-mappings": true,
+  "enable-cors": true
+}
+

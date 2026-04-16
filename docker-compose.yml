@@ -1,0 +1,150 @@
+# Электронный тренажер IrTRAN: БД, Keycloak, бэкенд, фронт (опционально)
+# Примечание: атрибут version в docker-compose больше не используется и удалён
+# Запуск: docker-compose up -d
+# Локальная разработка: см. README — backend (node app.js), frontend (npm run dev)
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: irtran-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-irtran}
+      MYSQL_USER: ${MYSQL_USER:-irtran}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-irtran}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME: ${KC_HOSTNAME:-localhost}
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_PORT: 8080
+      KC_HTTP_RELATIVE_PATH: /auth
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-master}
+    volumes:
+      # Импорт реалма при старте: все *.json из keycloak-realm/ подхватываются Keycloak
+      - ./keycloak-realm:/opt/keycloak/data/import
+    command: start-dev --import-realm
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15
+    container_name: keycloak-postgres
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./irtran_server-main
+      dockerfile: Dockerfile
+    container_name: irtran-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_NAME: ${MYSQL_DATABASE:-irtran}
+      DATABASE_USER: ${MYSQL_USER:-irtran}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD:-irtran}
+      # URL, который указан в токене (issuer) — тот, к которому обращается браузер
+      KEYCLOAK_AUTH_SERVER_URL: ${KEYCLOAK_AUTH_SERVER_URL:-http://localhost/auth}
+      # URL для запроса JWKS из контейнера бэкенда (keycloak — имя сервиса в Docker)
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/auth
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-master}
+      KEYCLOAK_RESOURCE: ${KEYCLOAK_RESOURCE:-irtran-client}
+      # Данные администратора Keycloak, используемые backend для вызова Admin REST API
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Специальный код для повышения роли до преподавателя
+      TEACHER_UPGRADE_CODE: ${TEACHER_UPGRADE_CODE:-CHANGE_ME_TEACHER_CODE}
+      # Каталоги загрузок: каждый привязан к своему тому (файлы «Справочник» и «Сценарии» не смешиваются)
+      REFERENCE_UPLOAD_DIR: /app/uploads/reference
+      SCENARIOS_UPLOAD_DIR: /app/uploads/scenarios
+    volumes:
+      # Том только для файлов вкладки «Справочник» — сохраняется при перезапуске контейнера
+      - reference_uploads:/app/uploads/reference
+      # Том только для файлов вкладки «Сценарии» — сохраняется при перезапуске контейнера
+      - scenarios_uploads:/app/uploads/scenarios
+    depends_on:
+      mysql:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - app-network
+
+  # Фронт в режиме production (собранный Vite). Для разработки лучше запускать локально: cd IrTRAN-main && npm run dev
+  frontend:
+    build:
+      context: ./IrTRAN-main
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost/auth}
+        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-master}
+        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-irtran-client}
+    container_name: irtran-frontend
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: irtran-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+      - keycloak
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:
+  postgres_data:
+  # Файлы, загруженные во вкладке «Справочник» (не смешиваются со «Сценариями»)
+  reference_uploads:
+  # Файлы, загруженные во вкладке «Сценарии» (не смешиваются со «Справочником»)
+  scenarios_uploads:
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,34 @@
+{
+  "name": "irtran",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-brands-svg-icons": "^6.7.2",
+    "@fortawesome/free-regular-svg-icons": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/vue-fontawesome": "^3.0.8",
+    "@mdi/font": "^7.4.47",
+    "axios": "^1.8.1",
+    "keycloak-js": "^24.0.4",
+    "pinia": "^3.0.1",
+    "survey-vue3-ui": "^2.5.10",
+    "vue": "^3.5.13",
+    "vue-fontawesome": "^0.0.2",
+    "vue-router": "^4.5.0",
+    "vuetify": "^3.8.8"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.1.0",
+    "vite-plugin-vue-devtools": "^7.7.2",
+    "vite-plugin-vuetify": "^2.1.1",
+    "vuetify": "^3.8.7"
+  }
+}
