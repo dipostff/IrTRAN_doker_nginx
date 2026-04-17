@@ -62,7 +62,7 @@ async function loadData() {
     };
 
     const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/reference`,
       {
         params,
         headers: {
@@ -102,7 +102,7 @@ async function uploadReference() {
     const token = getToken();
 
     await axios.post(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/reference`,
       formData,
       {
         headers: {
@@ -165,7 +165,7 @@ async function updateReference() {
 
     const token = getToken();
     await axios.patch(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference/${selectedReferenceId.value}`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/reference/${selectedReferenceId.value}`,
       formData,
       {
         headers: {
@@ -201,7 +201,7 @@ async function deleteReference() {
 
     const token = getToken();
     await axios.delete(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference/${selectedReferenceId.value}`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/reference/${selectedReferenceId.value}`,
       {
         headers: { Authorization: token ? `Bearer ${token}` : '' }
       }
@@ -227,7 +227,7 @@ async function downloadItem(item) {
   try {
     const token = getToken();
     const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference/${item.id}/download`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/reference/${item.id}/download`,
       {
         responseType: 'blob',
         headers: {

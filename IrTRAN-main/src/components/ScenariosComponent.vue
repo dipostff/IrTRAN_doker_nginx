@@ -45,7 +45,7 @@ async function loadData() {
     };
 
     const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/scenarios`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/scenarios`,
       {
         params,
         headers: {
@@ -86,7 +86,7 @@ async function createScenario() {
     const token = getToken();
 
     await axios.post(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/scenarios`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/scenarios`,
       formData,
       {
         headers: {
@@ -123,7 +123,7 @@ async function downloadScenario(item) {
   try {
     const token = getToken();
     const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/scenarios/${item.id}/file`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/scenarios/${item.id}/file`,
       {
         responseType: 'blob',
         headers: {
@@ -145,7 +145,7 @@ async function downloadScenario(item) {
     // Фиксируем ознакомление со сценарием для панели преподавателя
     try {
       await axios.post(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/scenarios/${item.id}/view`,
+        `${import.meta.env.VITE_API_URL || window.location.origin}/api/scenarios/${item.id}/view`,
         {},
         {
           headers: {

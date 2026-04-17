@@ -52,7 +52,7 @@ async function loadUsers() {
     error.value = '';
     const token = getToken();
     const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/users`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/admin/users`,
       {
         headers: {
           Authorization: token ? `Bearer ${token}` : ''
@@ -115,7 +115,7 @@ async function createUser() {
       ? ['student', 'teacher']
       : (asStudent ? ['student'] : ['student']);
     const createResp = await axios.post(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/users`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/admin/users`,
       {
         email,
         username: email,
@@ -137,7 +137,7 @@ async function createUser() {
         let createdId = createResp?.data?.id;
         if (!createdId) {
           const usersResp = await axios.get(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/users`,
+            `${import.meta.env.VITE_API_URL || window.location.origin}/api/admin/users`,
             { headers: { Authorization: token ? `Bearer ${token}` : '' } }
           );
           const created = (usersResp.data || []).find((u) => String(u.email || '').toLowerCase() === email);
@@ -145,7 +145,7 @@ async function createUser() {
         }
         if (createdId) {
           await axios.post(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/users/${createdId}/roles`,
+            `${import.meta.env.VITE_API_URL || window.location.origin}/api/admin/users/${createdId}/roles`,
             { add: ['student', 'teacher'], remove: [] },
             { headers: { Authorization: token ? `Bearer ${token}` : '' } }
           );
@@ -174,7 +174,7 @@ async function updateRoles(user, addRoles, removeRoles) {
   try {
     const token = getToken();
     await axios.post(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/users/${user.id}/roles`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/admin/users/${user.id}/roles`,
       {
         add: addRoles,
         remove: removeRoles
@@ -218,7 +218,7 @@ async function loadProfileRequests() {
     profileError.value = '';
     const token = getToken();
     const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/student-profile-requests`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/admin/student-profile-requests`,
       {
         params: { status: profileStatusFilter.value },
         headers: { Authorization: token ? `Bearer ${token}` : '' }
@@ -237,7 +237,7 @@ async function approveProfileRequest(row) {
   try {
     const token = getToken();
     await axios.post(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/student-profile-requests/${row.id}/approve`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/admin/student-profile-requests/${row.id}/approve`,
       {},
       { headers: { Authorization: token ? `Bearer ${token}` : '' } }
     );
@@ -253,7 +253,7 @@ async function rejectProfileRequest(row) {
   try {
     const token = getToken();
     await axios.post(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/student-profile-requests/${row.id}/reject`,
+      `${import.meta.env.VITE_API_URL || window.location.origin}/api/admin/student-profile-requests/${row.id}/reject`,
       { comment },
       { headers: { Authorization: token ? `Bearer ${token}` : '' } }
     );

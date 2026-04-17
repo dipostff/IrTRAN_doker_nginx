@@ -3,7 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
 import { getToken } from '@/helpers/keycloak';
 
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const apiBase = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '');
 
 const loading = ref(false);
 const items = ref([]);

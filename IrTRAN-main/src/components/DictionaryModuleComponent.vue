@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import { getToken } from '@/helpers/keycloak';
+import { getToken, updateToken } from '@/helpers/keycloak';
 
 const activeSection = ref('intro'); // intro | update | delete | view
 const dictionaries = ref([]);
@@ -17,12 +17,17 @@ const importInfo = ref('');
 const selectedImportFile = ref(null);
 
 const apiBase = computed(
-  () => `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}`
+  () => `${(import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '')}`
 );
 
 const hasDictionaries = computed(() => dictionaries.value.length > 0);
 
-function getAuthHeaders() {
+async function getAuthHeaders() {
+  try {
+    await updateToken(30);
+  } catch (_) {
+    // ignore refresh failures and try with current token
+  }
   const token = getToken();
   return {
     Authorization: token ? `Bearer ${token}` : ''
@@ -34,7 +39,7 @@ async function loadDictionaries() {
     loading.value = true;
     error.value = '';
     const { data } = await axios.get(`${apiBase.value}/api/dictionaries`, {
-      headers: getAuthHeaders()
+      headers: await getAuthHeaders()
     });
     dictionaries.value = Array.isArray(data) ? data : [];
     if (!selectedForUpdate.value && dictionaries.value.length) {
@@ -58,10 +63,10 @@ async function loadDictionary(key) {
     error.value = '';
     const [metaResp, rowsResp] = await Promise.all([
       axios.get(`${apiBase.value}/api/dictionaries/${key}/meta`, {
-        headers: getAuthHeaders()
+        headers: await getAuthHeaders()
       }),
       axios.get(`${apiBase.value}/api/dictionaries/${key}/rows`, {
-        headers: getAuthHeaders()
+        headers: await getAuthHeaders()
       })
     ]);
     meta.value = metaResp.data || {};
@@ -105,7 +110,7 @@ async function importFromFile() {
       formData,
       {
         headers: {
-          ...getAuthHeaders()
+          ...(await getAuthHeaders())
         }
       }
     );
@@ -132,7 +137,7 @@ async function downloadTemplate(format) {
     error.value = '';
     const ext = format === 'xlsx' ? 'xlsx' : 'json';
     const response = await axios.get(`${apiBase.value}/api/dictionaries/${key}/template`, {
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
       params: { format: ext },
       responseType: 'blob'
     });
@@ -186,7 +191,7 @@ async function createRow() {
       newRow.value,
       {
         headers: {
-          ...getAuthHeaders(),
+          ...(await getAuthHeaders()),
           'Content-Type': 'application/json'
         }
       }
@@ -220,7 +225,7 @@ async function saveEdit() {
       payload,
       {
         headers: {
-          ...getAuthHeaders(),
+          ...(await getAuthHeaders()),
           'Content-Type': 'application/json'
         }
       }
@@ -249,7 +254,7 @@ async function deleteRow(row) {
     await axios.delete(
       `${apiBase.value}/api/dictionaries/${key}/rows/${row.id}`,
       {
-        headers: getAuthHeaders()
+        headers: await getAuthHeaders()
       }
     );
     await loadDictionary(key);

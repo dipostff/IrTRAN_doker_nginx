@@ -2,7 +2,11 @@ import axios from "axios";
 import { useListsStore } from "@/stores/main";
 import { getToken, updateToken } from "./keycloak";
 
-const baseUrl = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "");
+const runtimeOrigin =
+    typeof window !== "undefined" && window.location && window.location.origin
+        ? window.location.origin
+        : "";
+const baseUrl = (import.meta.env.VITE_API_URL || runtimeOrigin).replace(/\/$/, "");
 const host = baseUrl.replace(/^https?:\/\//, ""); // имя или ip хоста api для sendRequest
 const listsStore = useListsStore();
 
