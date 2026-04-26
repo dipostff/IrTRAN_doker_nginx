@@ -16,7 +16,6 @@ a,
 
 body {
     color: #212529;
-    padding-top: 50px;
 }
 
 label.required::after {

@@ -35,6 +35,26 @@ const StudentDocument = sequelize.define('StudentDocument', {
   reference_exemplar_id: {
     type: DataTypes.INTEGER.UNSIGNED,
     allowNull: true
+  },
+  latest_review_status: {
+    type: DataTypes.STRING(32),
+    allowNull: true
+  },
+  latest_review_grade: {
+    type: DataTypes.STRING(16),
+    allowNull: true
+  },
+  latest_review_acceptance: {
+    type: DataTypes.STRING(16),
+    allowNull: true
+  },
+  latest_review_can_rework: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true
+  },
+  latest_reviewed_at: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   tableName: 'student_documents',

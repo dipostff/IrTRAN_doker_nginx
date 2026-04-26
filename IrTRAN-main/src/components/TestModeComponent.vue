@@ -73,7 +73,7 @@ async function loadTests() {
     loadingTests.value = true;
     testsError.value = "";
     const token = getToken();
-    const apiBase = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, "");
+    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:3000";
     const [testsResp, summaryResp] = await Promise.all([
       axios.get(`${apiBase}/api/tests`, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },
@@ -128,7 +128,7 @@ async function startTest(id) {
 
     const token = getToken();
     const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || window.location.origin}/api/tests/${id}/run`,
+      `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/tests/${id}/run`,
       {
         headers: {
           Authorization: token ? `Bearer ${token}` : "",
@@ -144,7 +144,7 @@ async function startTest(id) {
     // Списываем попытку при открытии теста
     try {
       const startResp = await axios.post(
-        `${import.meta.env.VITE_API_URL || window.location.origin}/api/tests/${id}/attempts/start`,
+        `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/tests/${id}/attempts/start`,
         {},
         {
           headers: {
@@ -181,7 +181,7 @@ async function startTest(id) {
       return;
     }
 
-    const apiBase = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, "");
+    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:3000";
     if (schema.pages && schema.pages[0] && schema.pages[0].elements) {
       const newElements = [];
       for (const el of schema.pages[0].elements) {
@@ -247,7 +247,7 @@ async function startTest(id) {
         const token = getToken();
         if (currentAttemptId.value) {
           await axios.patch(
-            `${import.meta.env.VITE_API_URL || window.location.origin}/api/tests/${id}/attempts/${currentAttemptId.value}/finish`,
+            `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/tests/${id}/attempts/${currentAttemptId.value}/finish`,
             {
               correctAnswers: correct,
               questionCount: total,
@@ -263,7 +263,7 @@ async function startTest(id) {
         } else {
           // fallback на старый endpoint (если по какой-то причине start не отработал)
           await axios.post(
-            `${import.meta.env.VITE_API_URL || window.location.origin}/api/tests/${id}/attempts`,
+            `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/tests/${id}/attempts`,
             {
               correctAnswers: correct,
               questionCount: total,

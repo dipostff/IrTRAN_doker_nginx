@@ -282,6 +282,16 @@ const router = createRouter({
             component: () => import("../views/TeacherDashboardView.vue"),
         },
         {
+            path: "/document-review", // Проверка документов
+            name: "document-review",
+            component: () => import("../views/DocumentReviewView.vue"),
+        },
+        {
+            path: "/document-review/manual/:id", // Ручная проверка отправленного документа
+            name: "document-review-manual",
+            component: () => import("../views/TeacherDocumentReviewManualView.vue"),
+        },
+        {
             path: "/reference", // Страница Справочник
             name: "reference",
             component: () => import("../views/ReferenceView.vue"),
@@ -315,6 +325,8 @@ const PAGE_TITLE = {
     scenarios: "Тренажёр ОТРЭД - Сценарии",
     "admin-panel": "Тренажёр ОТРЭД - Панель управления",
     "teacher-dashboard": "Тренажёр ОТРЭД - Панель преподавателя",
+    "document-review": "Тренажёр ОТРЭД - Проверка документов",
+    "document-review-manual": "Тренажёр ОТРЭД - Ручная проверка документа",
     "dictionary-module": "Тренажёр ОТРЭД - Заполнение справочников",
     "student-performance": "Тренажёр ОТРЭД - Успеваемость",
 };

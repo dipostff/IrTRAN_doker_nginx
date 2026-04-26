@@ -525,6 +525,60 @@ export async function compareStudentDocument(id, exemplarId) {
     return response.data;
 }
 
+// Модуль «Проверка документов»
+export async function submitDocumentForReview(source, documentId) {
+  const response = await apiClient.post(`${baseUrl}/api/document-review/submit`, { source, documentId });
+  return response.data;
+}
+
+export async function getMyDocumentReviews() {
+  const response = await apiClient.get(`${baseUrl}/api/document-review/my`);
+  return response.data;
+}
+
+export async function getTeacherDocumentReviewSubmissions(params = {}) {
+  const query = new URLSearchParams();
+  if (params.status) query.set('status', params.status);
+  const url = `${baseUrl}/api/document-review/teacher/submissions${query.toString() ? `?${query.toString()}` : ''}`;
+  const response = await apiClient.get(url);
+  return response.data;
+}
+
+export async function getTeacherDocumentReviewSubmission(id) {
+  const response = await apiClient.get(`${baseUrl}/api/document-review/teacher/submissions/${id}`);
+  return response.data;
+}
+
+export async function getTeacherDocumentReviewAuditTrail(id) {
+  const response = await apiClient.get(`${baseUrl}/api/document-review/teacher/submissions/${id}/audit-trail`);
+  return response.data;
+}
+
+export async function getTeacherDocumentReviewMetrics() {
+  const response = await apiClient.get(`${baseUrl}/api/document-review/teacher/metrics`);
+  return response.data;
+}
+
+export async function analyzeDocumentReviewSubmission(id) {
+  const response = await apiClient.post(`${baseUrl}/api/document-review/teacher/submissions/${id}/analyze`);
+  return response.data;
+}
+
+export async function finalizeDocumentReviewSubmission(id, payload) {
+  const response = await apiClient.patch(`${baseUrl}/api/document-review/teacher/submissions/${id}/finalize`, payload);
+  return response.data;
+}
+
+export async function getDocumentReviewTemplates() {
+  const response = await apiClient.get(`${baseUrl}/api/document-review/templates`);
+  return response.data;
+}
+
+export async function saveDocumentReviewTemplate(documentType, payload) {
+  const response = await apiClient.put(`${baseUrl}/api/document-review/templates/${encodeURIComponent(documentType)}`, { payload });
+  return response.data;
+}
+
 //--------------------------------------------------
 
 // Сообщить об ошибке — тикеты

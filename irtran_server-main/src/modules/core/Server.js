@@ -17,6 +17,7 @@ const { registerTestRoutes } = require('./../tests/testRoutes');
 const { registerAdminRoutes } = require('./../admin/adminRoutes');
 const { registerTeacherRoutes } = require('./../teacher/teacherRoutes');
 const { registerDocumentsRoutes } = require('./../documents/documentsRoutes');
+const { registerDocumentReviewRoutes } = require('./../documents/documentReviewRoutes');
 const { registerBugReportsRoutes } = require('./../bugReports/bugReportsRoutes');
 const { registerStudentRoutes } = require('./../student/studentRoutes');
 const { registerNotificationsRoutes } = require('./../notifications/notificationsRoutes');
@@ -129,6 +130,7 @@ class Server {
     registerAdminRoutes(this.app);
     registerTeacherRoutes(this.app);
     registerDocumentsRoutes(this.app);
+    registerDocumentReviewRoutes(this.app);
     registerBugReportsRoutes(this.app);
     registerStudentRoutes(this.app);
     registerNotificationsRoutes(this.app);

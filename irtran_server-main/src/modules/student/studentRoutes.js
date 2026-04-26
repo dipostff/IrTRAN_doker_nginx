@@ -12,6 +12,8 @@ const ReferenceDocumentView = require('./../../models/ReferenceDocumentView');
 const StudentProfile = require('./../../models/StudentProfile');
 const StudentProfileChangeRequest = require('./../../models/StudentProfileChangeRequest');
 const BeginnerScenarioSession = require('./../../models/BeginnerScenarioSession');
+const DocumentReview = require('./../../models/DocumentReview');
+const { DOCUMENT_TYPE_LABELS } = require('./../documents/documentsRoutes');
 //-----------Подключаемые модули-----------//
 
 function requirePureStudent(req, res, next) {
@@ -79,7 +81,7 @@ function registerStudentRoutes(app) {
           username: u.preferred_username || u.preferredUsername || u.username || null
         };
 
-        const [profile, pendingRequest, tests, attempts, scenarios, views, refDocs, refViews, sessions] =
+        const [profile, pendingRequest, tests, attempts, scenarios, views, refDocs, refViews, sessions, documentReviews] =
           await Promise.all([
             StudentProfile.findByPk(userId),
             StudentProfileChangeRequest.findOne({
@@ -102,6 +104,10 @@ function registerStudentRoutes(app) {
               where: { user_id: userId },
               order: [['started_at', 'DESC']],
               limit: 200
+            }),
+            DocumentReview.findAll({
+              where: { student_user_id: userId },
+              order: [['submitted_at', 'DESC']]
             })
           ]);
 
@@ -196,6 +202,22 @@ function registerStudentRoutes(app) {
           open: !s.ended_at
         }));
 
+        const documentReviewsOut = documentReviews.map((r) => ({
+          id: r.id,
+          source: r.document_source,
+          documentId: r.document_id,
+          documentType: r.document_type,
+          documentTypeLabel: DOCUMENT_TYPE_LABELS[r.document_type] || r.document_type,
+          versionNo: r.version_no,
+          status: r.status,
+          submittedAt: r.submitted_at,
+          reviewedAt: r.reviewed_at,
+          grade: r.grade,
+          acceptance: r.acceptance,
+          comment: r.teacher_comment,
+          canRework: r.can_rework
+        }));
+
         return res.json({
           identity,
           profile: profile
@@ -216,6 +238,7 @@ function registerStudentRoutes(app) {
           tests: testsOut,
           scenarios: scenariosOut,
           referenceMaterials: referenceOut,
+          documentReviews: documentReviewsOut,
           beginnerScenarioSessions: beginnerSessionsOut,
           beginnerScenarioStats: {
             totalSessions: beginnerSessionsOut.filter((x) => x.endedAt).length,

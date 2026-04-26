@@ -6,6 +6,7 @@ import {
     softDeleteDocument,
     restoreDocument,
     downloadDocumentPdf,
+    submitDocumentForReview,
 } from "@/helpers/API";
 
 const router = useRouter();
@@ -79,6 +80,57 @@ async function downloadPdf(item) {
     }
 }
 
+async function sendForReview(item) {
+    try {
+        await submitDocumentForReview(item.source, item.id);
+        await load();
+        alert("Документ отправлен на проверку преподавателю.");
+    } catch (e) {
+        alert(e.response?.data?.message || "Не удалось отправить документ на проверку.");
+    }
+}
+
+function canSendForReview(item) {
+    if (item.deletedAt) return false;
+    if (item.reviewStatus === "submitted") return false;
+    if (item.reviewStatus === "reviewed" && item.reviewAcceptance === "accepted") return false;
+    if (item.reviewStatus === "reviewed" && item.reviewAcceptance === "rejected" && item.reviewCanRework === false) return false;
+    return true;
+}
+
+function sendForReviewHint(item) {
+    if (item.deletedAt) return "Документ в архиве: восстановите его для повторной отправки.";
+    if (item.reviewStatus === "submitted") return "Документ уже отправлен и ожидает проверки преподавателем.";
+    if (item.reviewStatus === "reviewed" && item.reviewAcceptance === "accepted") {
+        return "Документ уже принят. Для новой попытки создайте новый документ.";
+    }
+    if (item.reviewStatus === "reviewed" && item.reviewAcceptance === "rejected" && item.reviewCanRework === false) {
+        return "Переделка запрещена преподавателем. Нужно создать новый документ.";
+    }
+    if (item.reviewStatus === "reviewed" && item.reviewAcceptance === "rejected" && item.reviewCanRework === true) {
+        return "Переделка разрешена: после исправлений отправьте документ повторно.";
+    }
+    return "Документ можно отправить на проверку.";
+}
+
+function reviewStatusText(item) {
+    if (!item.reviewStatus) return "Не отправлен";
+    if (item.reviewStatus === "submitted") return "Отправлено на проверку";
+    if (item.reviewStatus === "reviewed") {
+        const acceptance = item.reviewAcceptance === "accepted"
+            ? "принято"
+            : item.reviewAcceptance === "rejected"
+                ? "не принято"
+                : "без решения";
+        const grade = item.reviewGrade ? `, оценка: ${item.reviewGrade}` : "";
+        const rework = item.reviewAcceptance === "rejected"
+            ? `, переделка: ${item.reviewCanRework ? "можно" : "нельзя"}`
+            : "";
+        return `Проверено (${acceptance}${grade}${rework})`;
+    }
+    return item.reviewStatus;
+}
+
 function formatDate(d) {
     if (!d) return "—";
     return new Date(d).toLocaleString("ru-RU");
@@ -133,12 +185,22 @@ onMounted(load);
                         <td>{{ formatDate(item.createdAt) }}</td>
                         <td>{{ item.signed ? 'Да' : 'Нет' }}</td>
                         <td>
-                            <span v-if="item.deletedAt" class="badge bg-secondary">В архиве</span>
-                            <span v-else class="badge bg-success">Активный</span>
+                            <div v-if="item.deletedAt" class="badge bg-secondary">В архиве</div>
+                            <div v-else class="badge bg-success">Активный</div>
+                            <div class="small text-muted mt-1">{{ reviewStatusText(item) }}</div>
                         </td>
                         <td>
                             <button type="button" class="btn btn-sm btn-outline-primary me-1" @click="viewDoc(item)">Просмотр</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary me-1" @click="downloadPdf(item)">Скачать PDF</button>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-warning me-1"
+                                :disabled="!canSendForReview(item)"
+                                @click="sendForReview(item)"
+                            >
+                                {{ item.reviewStatus === "reviewed" && item.reviewAcceptance === "rejected" && item.reviewCanRework ? "Отправить повторно" : "Отправить на проверку" }}
+                            </button>
+                            <div class="small text-muted mt-1">{{ sendForReviewHint(item) }}</div>
                             <template v-if="item.deletedAt">
                                 <button type="button" class="btn btn-sm btn-outline-success" @click="restore(item)">Восстановить</button>
                             </template>

@@ -1,9 +1,9 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
-import { getToken, updateToken } from '@/helpers/keycloak';
+import { getToken } from '@/helpers/keycloak';
 
-const apiBase = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '');
+const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const step = ref(1);
 const loading = ref(false);
@@ -44,12 +44,7 @@ let bankAutoSearchTimer = null;
 let testsAutoSearchTimer = null;
 const isAutoClearing = ref(false);
 
-async function getAuthHeaders() {
-  try {
-    await updateToken(30);
-  } catch (_) {
-    // token refresh may fail on unstable network; use current token if any
-  }
+function getAuthHeaders() {
   const token = getToken();
   return { Authorization: token ? `Bearer ${token}` : '' };
 }
@@ -148,7 +143,7 @@ async function loadExistingTests() {
     const id = existingTestIdFilter.value ? parseInt(existingTestIdFilter.value, 10) : null;
     const res = await axios.get(`${apiBase}/api/tests`, {
       params: { id: id && !Number.isNaN(id) ? id : undefined },
-      headers: await getAuthHeaders()
+      headers: getAuthHeaders()
     });
     existingTests.value = res.data || [];
   } catch (e) {
@@ -189,7 +184,7 @@ async function deleteTestById(test) {
   );
   if (!ok) return;
   try {
-    await axios.delete(`${apiBase}/api/tests/${id}`, { headers: await getAuthHeaders() });
+    await axios.delete(`${apiBase}/api/tests/${id}`, { headers: getAuthHeaders() });
     await loadExistingTests();
   } catch (e) {
     console.error(e);
@@ -210,7 +205,7 @@ async function loadBank() {
         limit: 200,
         offset: 0
       },
-      headers: await getAuthHeaders()
+      headers: getAuthHeaders()
     });
     bankItems.value = res.data.items || [];
     bankTotal.value = res.data.total || 0;
@@ -252,11 +247,11 @@ function addQuestion(q) {
   variants.value = [...variants.value];
 }
 
-async function addRandom() {
+function addRandom() {
   const n = Math.max(1, parseInt(randomCount.value, 10) || 1);
   randomWarning.value = '';
   axios
-    .get(`${apiBase}/api/questions/random?count=${n}`, { headers: await getAuthHeaders() })
+    .get(`${apiBase}/api/questions/random?count=${n}`, { headers: getAuthHeaders() })
     .then(async (res) => {
       const ids = res.data.ids || [];
       const total = res.data.total || 0;
@@ -269,7 +264,7 @@ async function addRandom() {
       }
       const allRes = await axios.get(`${apiBase}/api/questions`, {
         params: { limit: 500, offset: 0 },
-        headers: await getAuthHeaders()
+        headers: getAuthHeaders()
       });
       const idToText = {};
       (allRes.data.items || []).forEach((q) => {
@@ -353,7 +348,7 @@ function goStep3() {
   step.value = 3;
 }
 
-async function createTest() {
+function createTest() {
   createError.value = '';
   creating.value = true;
   const payload =
@@ -399,7 +394,7 @@ async function createTest() {
       method: editingTestId.value ? 'put' : 'post',
       url: editingTestId.value ? `${apiBase}/api/tests/${editingTestId.value}` : `${apiBase}/api/tests`,
       data: payload,
-      headers: await getAuthHeaders()
+      headers: getAuthHeaders()
     })
     .then(() => {
       step.value = 1;
@@ -442,7 +437,7 @@ async function editTestById(test) {
   if (!id) return;
   try {
     editLoading.value = true;
-    const res = await axios.get(`${apiBase}/api/tests/${id}`, { headers: await getAuthHeaders() });
+    const res = await axios.get(`${apiBase}/api/tests/${id}`, { headers: getAuthHeaders() });
     const d = res.data || {};
     editingTestId.value = d.id;
     variantMode.value = d.variantMode || 'single_shuffled';

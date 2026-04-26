@@ -15,6 +15,7 @@
 ## Панели и функции
 
 - `ADMIN_PANELS.md` — роли, панель администратора и преподавателя, основные backend/FE моменты.
+- `DOCUMENT_REVIEW_MODULE.md` — модуль «Проверка документов»: поток, API, метрики, audit trail, UI-проверки.
 - `GROUPS_TEACHER_DASHBOARD.md` — группы студентов через Keycloak + успеваемость группы.
 - `TESTS_AND_ATTEMPTS.md` — тесты, попытки, лимиты, логика “списание при открытии”.
 - `DICTIONARIES_IMPORT.md` — импорт справочников из JSON/XLSX и шаблоны.

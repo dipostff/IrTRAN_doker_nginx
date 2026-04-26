@@ -73,6 +73,13 @@ const CATEGORIES = [
         visible: () => isTeacherOrAdmin.value
       },
       {
+        to: '/document-review',
+        title: 'Проверка документов',
+        subtitle: 'ручная / алгоритмическая',
+        icon: 'https://cdn-icons-png.flaticon.com/512/3193/3193015.png',
+        visible: () => isTeacherOrAdmin.value
+      },
+      {
         to: '/dictionary-module',
         title: 'Заполнение справочников',
         subtitle: 'импорт / шаблоны',
@@ -134,7 +141,7 @@ const favoriteTiles = computed(() => {
     (c.items || []).filter((it) => (typeof it.visible === 'function' ? it.visible() : true))
   );
   const byTo = new Map(all.map((i) => [i.to, i]));
-  return favoriteRoutes.value.map((to) => byTo.get(to)).filter(Boolean);
+  return favoriteRoutes.value.map((to) => byTo.get(to)).filter(Boolean).slice(0, 6);
 });
 
 function setActive(id) {
@@ -219,7 +226,7 @@ function toggleFavorite(route) {
 }
 
 function resetFavorites() {
-  favoriteRoutes.value = [...FAVORITE_ROUTES];
+  favoriteRoutes.value = FAVORITE_ROUTES.slice(0, 6);
   persistFavorites();
   showFavoritesNotice('Избранные модули очищены и восстановлены по умолчанию.');
 }
@@ -247,11 +254,11 @@ onMounted(() => {
       const stored = readFavoritesFromStorage();
       favoriteRoutes.value = Array.isArray(stored) ? stored : [];
     } else {
-      favoriteRoutes.value = [...FAVORITE_ROUTES];
+      favoriteRoutes.value = FAVORITE_ROUTES.slice(0, 6);
       persistFavorites();
     }
   } catch (e) {
-    favoriteRoutes.value = [...FAVORITE_ROUTES];
+    favoriteRoutes.value = FAVORITE_ROUTES.slice(0, 6);
     persistFavorites();
   }
   favoritesReady.value = true;
@@ -311,9 +318,9 @@ watch(
           v-for="t in favoriteTiles"
           :key="`fav-${t.to}`"
           :to="t.to"
-          class="tile tile-strong fav-tile"
+          class="fav-tile"
         >
-          <div class="tile-icon-wrap">
+          <div class="tile-icon-wrap fav-icon-wrap">
             <img
               v-if="typeof t.icon === 'string'"
               class="tile-icon"
@@ -322,11 +329,7 @@ watch(
               loading="lazy"
             />
           </div>
-          <div class="tile-body">
-            <div class="tile-title fav-title">{{ t.title }}</div>
-            <div v-if="t.subtitle" class="tile-subtitle">{{ t.subtitle }}</div>
-          </div>
-          <div class="tile-chevron" aria-hidden="true">→</div>
+          <div class="fav-title">{{ t.title }}</div>
         </router-link>
       </div>
       <div v-else-if="favoritesReady" class="favorites-empty">
@@ -517,19 +520,38 @@ watch(
 }
 .favorites-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 .fav-tile {
-  grid-template-columns: 64px 1fr auto;
-  min-height: 86px;
   text-decoration: none;
+  border: 1px solid rgba(16, 24, 40, 0.1);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(240,246,255,0.9));
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.08);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+  min-height: 74px;
+  overflow: hidden;
 }
 .fav-tile:hover {
-  text-decoration: none;
+  transform: translateY(-1px);
+  border-color: rgba(125, 165, 240, 0.4);
+  box-shadow: 0 12px 30px rgba(79, 133, 235, 0.16);
+}
+.fav-icon-wrap {
+  width: 54px;
+  height: 54px;
 }
 .fav-title {
-  font-size: 15px;
+  color: #243246;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.25;
 }
 
 .cat-pill {

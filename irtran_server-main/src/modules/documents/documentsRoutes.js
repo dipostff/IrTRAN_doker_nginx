@@ -3,6 +3,7 @@ const express = require('express');
 const keycloakAuth = require('../auth/keycloakAuth');
 const RequestTransportation = require('../../models/RequestTransportation');
 const StudentDocument = require('../../models/StudentDocument');
+const DocumentReview = require('../../models/DocumentReview');
 const { buildSimpleFieldsPdf, buildStudentDocumentPdf } = require('./documentPdfExport');
 const { loadPdfDictionaryMaps } = require('./pdfDictionaryMaps');
 const { comparePayloads, formatDiffValue } = require('./documentPayloadDiff');
@@ -46,6 +47,16 @@ function ensureAuth(req, res, next) {
 async function listDocuments(userId, options = {}) {
   const { documentType, includeDeleted = false } = options;
   const list = [];
+  const reviews = await DocumentReview.findAll({
+    where: { student_user_id: userId },
+    order: [['version_no', 'DESC'], ['submitted_at', 'DESC']],
+    raw: true
+  });
+  const latestReviewByDoc = new Map();
+  for (const r of reviews) {
+    const key = `${r.document_source}:${r.document_id}`;
+    if (!latestReviewByDoc.has(key)) latestReviewByDoc.set(key, r);
+  }
 
   if (!documentType || documentType === DOCUMENT_TYPES.transportation) {
     const where = { user_id: userId };
@@ -56,6 +67,7 @@ async function listDocuments(userId, options = {}) {
       raw: true
     });
     transportations.forEach((row) => {
+      const review = latestReviewByDoc.get(`transportation:${row.id}`) || null;
       list.push({
         source: 'transportation',
         type: DOCUMENT_TYPES.transportation,
@@ -64,7 +76,13 @@ async function listDocuments(userId, options = {}) {
         createdAt: row.created_at,
         deletedAt: row.deleted_at,
         signed: row.document_status != null,
-        summary: `Заявка № ${row.id}`
+        summary: `Заявка № ${row.id}`,
+        reviewStatus: review?.status || null,
+        reviewGrade: review?.grade || null,
+        reviewAcceptance: review?.acceptance || null,
+        reviewCanRework: review?.can_rework ?? null,
+        reviewSubmittedAt: review?.submitted_at || null,
+        reviewedAt: review?.reviewed_at || null
       });
     });
   }
@@ -82,6 +100,7 @@ async function listDocuments(userId, options = {}) {
   studentDocs.forEach((row) => {
     const payload = row.payload || {};
     const docId = payload.id || row.id;
+    const review = latestReviewByDoc.get(`student:${row.id}`) || null;
     list.push({
       source: 'student',
       type: row.document_type,
@@ -94,7 +113,13 @@ async function listDocuments(userId, options = {}) {
       summary: `${DOCUMENT_TYPE_LABELS[row.document_type] || row.document_type} № ${docId}`,
       isExemplar: !!row.is_exemplar,
       exemplarTitle: row.exemplar_title || null,
-      referenceExemplarId: row.reference_exemplar_id != null ? row.reference_exemplar_id : null
+      referenceExemplarId: row.reference_exemplar_id != null ? row.reference_exemplar_id : null,
+      reviewStatus: review?.status || row.latest_review_status || null,
+      reviewGrade: review?.grade || row.latest_review_grade || null,
+      reviewAcceptance: review?.acceptance || row.latest_review_acceptance || null,
+      reviewCanRework: review?.can_rework ?? row.latest_review_can_rework ?? null,
+      reviewSubmittedAt: review?.submitted_at || null,
+      reviewedAt: review?.reviewed_at || row.latest_reviewed_at || null
     });
   });
 

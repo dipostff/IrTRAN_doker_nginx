@@ -307,6 +307,27 @@ async function deleteGroup(groupId) {
   );
 }
 
+async function listUserGroups(userId) {
+  const token = await getAdminAccessToken();
+  const res = await axios.get(
+    `${adminConfig.adminApiBaseUrl}/users/${encodeURIComponent(userId)}/groups`,
+    authHeaders(token)
+  );
+  return res.data || [];
+}
+
+function resolveTeacherIdsFromUserGroups(userGroups) {
+  const ids = new Set();
+  for (const g of userGroups || []) {
+    const path = String(g.path || '');
+    const match = path.match(/^\/IrTRAN\/Teachers\/([^/]+)\/Groups\/[^/]+$/);
+    if (match && match[1]) {
+      ids.add(match[1]);
+    }
+  }
+  return Array.from(ids);
+}
+
 /**
  * Получить текущие realm‑роли пользователя.
  */
@@ -386,6 +407,8 @@ module.exports = {
   createTeacherOwnedGroup,
   listAllTeacherGroups,
   listGroupMembers,
+  listUserGroups,
+  resolveTeacherIdsFromUserGroups,
   addUserToGroup,
   removeUserFromGroup,
   deleteGroup,

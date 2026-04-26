@@ -467,7 +467,7 @@ onMounted(async () => {
                 <div class="row mb-1">
                     <simple-select title="Тип бланка" :values="blankTypeOptions" valueKey="id" name="name" v-model="document.id_blank_type" />
                     <disable-simple-input title="Код бланка" :dis="true" :value="blankTypeOptions.find(b => b.id === document.id_blank_type)?.code ?? ''" :fixWidth="false" styleInput="width: 100px" />
-                </div>
+                    </div>
 
                 <div class="row mb-1">
                     <select-with-search title="Вид отправки" :values="listsStore.send_types" valueKey="id" name="name" v-model="document.id_send_type" modalName="InvoiceSendType" :fields="{ 'Код ИОДВ': 'code_IODV', 'Наименование': 'name', 'Аббревиатура': 'abbreviation' }" />
@@ -477,7 +477,7 @@ onMounted(async () => {
                     <select-with-search title="Грузоотправитель" :values="listsStore.legal_entities" valueKey="id" name="name" v-model="document.id_shipper" modalName="InvoiceShipper" :fields="{ 'Код ОКПО': 'OKPO', 'Наименование грузоотправителя': 'name', 'ИД бизнеса': 'id_business', 'ИД холдинга': 'id_holding', 'Наименование холдинга': 'name_holding' }" />
                     <disable-simple-input title="ОКПО" :dis="true" :value="listsStore.legal_entities[document.id_shipper]?.OKPO ?? ''" :fixWidth="false" styleInput="width: 120px" />
                     <disable-simple-input title="ИНН" :dis="true" :value="listsStore.legal_entities[document.id_shipper]?.INN ?? ''" :fixWidth="false" styleInput="width: 150px" />
-                </div>
+                    </div>
 
                 <div class="row mb-1">
                     <disable-simple-input title="Наименование грузоотправителя" :dis="true" :value="listsStore.legal_entities[document.id_shipper]?.name ?? ''" styleInput="width: 870px" />
@@ -626,7 +626,7 @@ onMounted(async () => {
                     <select-with-search title="Грузополучатель" :values="listsStore.legal_entities" valueKey="id" name="name" v-model="document.id_receiver" modalName="InvoiceReceiver" :fields="{ 'Код ОКПО': 'OKPO', 'Наименование грузополучателя': 'name', 'ИД бизнеса': 'id_business', 'ИД холдинга': 'id_holding', 'Наименование холдинга': 'name_holding' }" />
                     <disable-simple-input title="ОКПО" :dis="true" :value="listsStore.legal_entities[document.id_receiver]?.OKPO ?? ''" :fixWidth="false" styleInput="width: 120px" />
                     <disable-simple-input title="ИНН" :dis="true" :value="listsStore.legal_entities[document.id_receiver]?.INN ?? ''" :fixWidth="false" styleInput="width: 150px" />
-                </div>
+                    </div>
 
                 <div class="row mb-1">
                     <disable-simple-input title="Наименование грузополучателя" :dis="true" :value="listsStore.legal_entities[document.id_receiver]?.name ?? ''" styleInput="width: 870px" />
@@ -814,7 +814,7 @@ onMounted(async () => {
                     <disable-simple-input title="ЖД" :dis="true" :value="listsStore.stations[document.id_station_departure]?.railway ?? ''" :fixWidth="false" styleInput="width: 60px" />
                     <disable-simple-input title="Параграфы" :dis="true" :value="listsStore.stations[document.id_station_departure]?.paragraph ?? ''" :fixWidth="false" styleInput="width: 140px" />
                     <disable-simple-input title="Узел" :dis="true" :value="listsStore.stations[document.id_station_departure]?.knot ?? ''" :fixWidth="false" styleInput="width: 140px" />
-                </div>
+                    </div>
 
                 <div class="row mb-1">
                     <simple-input title="Подъездной путь станции отправления" v-model="document.departure_railway_path" styleInput="width: 270px" />
@@ -826,7 +826,7 @@ onMounted(async () => {
                     <disable-simple-input title="ЖД" :dis="true" :value="listsStore.stations[document.id_station_destination]?.railway ?? ''" :fixWidth="false" styleInput="width: 60px" />
                     <disable-simple-input title="Параграфы" :dis="true" :value="listsStore.stations[document.id_station_destination]?.paragraph ?? ''" :fixWidth="false" styleInput="width: 140px" />
                     <disable-simple-input title="Узел" :dis="true" :value="listsStore.stations[document.id_station_destination]?.knot ?? ''" :fixWidth="false" styleInput="width: 140px" />
-                </div>
+                    </div>
 
                 <div class="row mb-1">
                     <simple-input title="Подъездной путь станции назначения" v-model="document.destination_railway_path" styleInput="width: 270px" />

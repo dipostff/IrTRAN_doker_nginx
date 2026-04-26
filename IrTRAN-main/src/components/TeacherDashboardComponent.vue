@@ -93,7 +93,7 @@ const availableStudentsToAdd = computed(() => {
 });
 
 function baseUrl() {
-  return (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '');
+  return import.meta.env.VITE_API_URL || 'http://localhost:3000';
 }
 
 function authHeaders() {

@@ -110,6 +110,18 @@ function formatTotalTime(sec) {
   const rm = m % 60;
   return `${h} ч ${rm} мин`;
 }
+
+function reviewStatusLabel(item) {
+  if (item.status === "submitted") return "Отправлено на проверку";
+  if (item.status === "reviewed") return "Проверено";
+  return item.status || "—";
+}
+
+function acceptanceLabel(item) {
+  if (item.acceptance === "accepted") return "Принято";
+  if (item.acceptance === "rejected") return "Не принято";
+  return "—";
+}
 </script>
 
 <template>
@@ -223,6 +235,39 @@ function formatTotalTime(sec) {
       </div>
 
       <div v-if="submitMsg" class="alert alert-success">{{ submitMsg }}</div>
+
+      <section class="card mb-4">
+        <div class="card-header fw-semibold">Проверка документов</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-striped table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>Документ</th>
+                  <th>Версия</th>
+                  <th>Статус</th>
+                  <th>Результат</th>
+                  <th>Оценка</th>
+                  <th>Можно переделать</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in data.documentReviews || []" :key="r.id">
+                  <td>{{ r.documentTypeLabel }}</td>
+                  <td>{{ r.versionNo }}</td>
+                  <td>{{ reviewStatusLabel(r) }}</td>
+                  <td>{{ acceptanceLabel(r) }}</td>
+                  <td>{{ r.grade || "—" }}</td>
+                  <td>{{ r.canRework == null ? "—" : (r.canRework ? "Да" : "Нет") }}</td>
+                </tr>
+                <tr v-if="!(data.documentReviews || []).length">
+                  <td colspan="6" class="text-muted">Проверок документов пока нет.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
       <section class="card mb-4">
         <div class="card-header fw-semibold">Тесты</div>
