@@ -17,7 +17,7 @@ const importInfo = ref('');
 const selectedImportFile = ref(null);
 
 const apiBase = computed(
-  () => `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}`
+  () => `${(import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '')}`
 );
 
 const hasDictionaries = computed(() => dictionaries.value.length > 0);
