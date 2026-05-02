@@ -23,6 +23,18 @@ const MAX_DICTIONARY_IMPORT_BATCH_ROWS = Math.min(
   5000
 );
 
+/** Выборка строк для UI: страницы (LIMIT/OFFSET) */
+const DICTIONARY_ROWS_MAX_LIMIT = Math.min(
+  Math.max(parseInt(process.env.DICTIONARY_ROWS_MAX_LIMIT, 10) || 500, 1),
+  2000
+);
+
+/** За один запрос массового удаления по id */
+const DICTIONARY_DELETE_BATCH_MAX_IDS = Math.min(
+  Math.max(parseInt(process.env.DICTIONARY_DELETE_BATCH_MAX_IDS, 10) || 2000, 1),
+  20000
+);
+
 // Разрешённые справочники. Ключ используется на фронтенде.
 // Таблицы уже существуют в БД и используются формами документов.
 const DICTIONARIES = {
@@ -1012,8 +1024,22 @@ function registerDictionaryRoutes(app) {
         if (!def) {
           return res.status(400).json({ error: 'unknown_dictionary' });
         }
-        const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
-        const offset = parseInt(req.query.offset, 10) || 0;
+        let limit = parseInt(req.query.limit, 10);
+        if (Number.isNaN(limit) || limit < 1) limit = 100;
+        limit = Math.min(limit, DICTIONARY_ROWS_MAX_LIMIT);
+        const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+
+        const [[countRow]] = await sequelize.query(
+          `SELECT COUNT(*) AS cnt FROM \`${def.table}\``,
+          {}
+        );
+        let rawCnt =
+          countRow && typeof countRow === 'object' && 'cnt' in countRow ? countRow.cnt : undefined;
+        if (rawCnt === undefined && countRow && typeof countRow === 'object') {
+          rawCnt = Object.values(countRow)[0];
+        }
+        const total =
+          typeof rawCnt === 'bigint' ? Number(rawCnt) : Math.max(0, parseInt(rawCnt, 10) || 0);
 
         const [rows] = await sequelize.query(
           `SELECT * FROM \`${def.table}\` ORDER BY id LIMIT :limit OFFSET :offset`,
@@ -1022,7 +1048,7 @@ function registerDictionaryRoutes(app) {
           }
         );
 
-        res.json({ items: rows, limit, offset });
+        res.json({ items: rows, total, limit, offset });
       } catch (error) {
         console.error('Error loading dictionary rows:', error);
         res.status(500).json({
@@ -1158,6 +1184,75 @@ function registerDictionaryRoutes(app) {
             status === 400
               ? 'Ошибка структуры или формата данных.'
               : 'Не удалось импортировать пакет справочника.'
+        });
+      }
+    }
+  );
+
+  // Массовое удаление строк (по id или все записи справочника)
+  router.post(
+    '/api/dictionaries/:key/rows/delete-batch',
+    keycloakAuth.verifyToken(),
+    keycloakAuth.requireAnyRealmRole(['dictionary-admin', 'app-admin']),
+    async (req, res) => {
+      try {
+        const dictKey = req.params.key;
+        const def = DICTIONARIES[dictKey];
+        if (!def) {
+          return res.status(400).json({ error: 'unknown_dictionary' });
+        }
+        const body = req.body || {};
+        if (body.deleteAll === true) {
+          await sequelize.query(`DELETE FROM \`${def.table}\``, {});
+          return res.json({
+            ok: true,
+            mode: 'all',
+            deleted: null,
+            message: 'Все строки справочника удалены.'
+          });
+        }
+        let ids = Array.isArray(body.ids) ? body.ids : [];
+        ids = [
+          ...new Set(
+            ids
+              .map((x) => parseInt(String(x).trim(), 10))
+              .filter((n) => Number.isFinite(n) && n > 0)
+          )
+        ];
+        if (ids.length === 0) {
+          return res.status(400).json({
+            error: 'ids_required',
+            message: 'Передайте { "ids": [1,2,3] } или { "deleteAll": true }.'
+          });
+        }
+        if (ids.length > DICTIONARY_DELETE_BATCH_MAX_IDS) {
+          return res.status(413).json({
+            error: 'too_many_ids',
+            message: `За один запрос не более ${DICTIONARY_DELETE_BATCH_MAX_IDS} идентификаторов; разбейте на части.`,
+            maxIds: DICTIONARY_DELETE_BATCH_MAX_IDS
+          });
+        }
+
+        const CHUNK = 500;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const slice = ids.slice(i, i + CHUNK);
+          await sequelize.query(
+            `DELETE FROM \`${def.table}\` WHERE id IN (${slice.join(',')})`,
+            {}
+          );
+        }
+
+        return res.json({
+          ok: true,
+          mode: 'ids',
+          requested: ids.length,
+          message: `Запрошено удаление по списку id: ${ids.length}.`
+        });
+      } catch (error) {
+        console.error('Error in dictionary delete-batch:', error);
+        return res.status(500).json({
+          error: 'dictionary_delete_batch_failed',
+          message: 'Не удалось выполнить массовое удаление.'
         });
       }
     }

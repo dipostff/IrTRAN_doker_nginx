@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { getToken, updateToken } from '@/helpers/keycloak';
 import {
@@ -17,8 +17,15 @@ const selectedForDelete = ref('');
 const selectedForView = ref('');
 
 const meta = ref({ columns: {}, fieldLabels: {}, fieldOrder: null });
+const metaLoadedForKey = ref('');
 const rows = ref([]);
+const rowsTotal = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(100);
+const PAGE_SIZE_OPTIONS = [50, 100, 200, 500];
 const loading = ref(false);
+/** Отметки для массового удаления (только активная страница; при смене страницы сбрасываются) */
+const selectedDeleteIds = ref({});
 const error = ref('');
 const importInfo = ref('');
 const selectedImportFile = ref(null);
@@ -28,6 +35,185 @@ const apiBase = computed(
 );
 
 const hasDictionaries = computed(() => dictionaries.value.length > 0);
+
+const activeDictKey = computed(() => {
+  switch (activeSection.value) {
+    case 'update':
+      return selectedForUpdate.value;
+    case 'delete':
+      return selectedForDelete.value;
+    case 'view':
+      return selectedForView.value;
+    default:
+      return selectedForView.value;
+  }
+});
+
+const totalPages = computed(() => {
+  if (!rowsTotal.value) return 1;
+  return Math.max(1, Math.ceil(rowsTotal.value / pageSize.value));
+});
+
+const rowsRangeLabel = computed(() => {
+  if (!rowsTotal.value) return 'Нет записей';
+  const start = (currentPage.value - 1) * pageSize.value + 1;
+  const end = Math.min(currentPage.value * pageSize.value, rowsTotal.value);
+  return `${start}–${end} из ${rowsTotal.value}`;
+});
+
+function clearDeleteSelection() {
+  selectedDeleteIds.value = {};
+}
+
+function setDeleteSelected(id, on) {
+  const next = { ...selectedDeleteIds.value };
+  if (on) next[id] = true;
+  else delete next[id];
+  selectedDeleteIds.value = next;
+}
+
+function selectAllRowsOnPage() {
+  const next = { ...selectedDeleteIds.value };
+  for (const row of rows.value) {
+    if (row && row.id != null) next[row.id] = true;
+  }
+  selectedDeleteIds.value = next;
+}
+
+function deselectAllRowsOnPage() {
+  const next = { ...selectedDeleteIds.value };
+  for (const row of rows.value) {
+    if (row && row.id != null) delete next[row.id];
+  }
+  selectedDeleteIds.value = next;
+}
+
+const selectedDeleteCount = computed(
+  () => Object.keys(selectedDeleteIds.value).length
+);
+
+async function reloadDictionaryPage(key) {
+  if (!key) return;
+  await loadDictionary(key);
+  const tp = totalPages.value;
+  if (currentPage.value > tp) {
+    currentPage.value = tp;
+    await loadDictionary(key);
+  }
+}
+
+async function reloadDictionaryPageAndClearSelection(key) {
+  await reloadDictionaryPage(key);
+  clearDeleteSelection();
+}
+
+async function postDeleteBatch(key, body) {
+  await updateToken(30).catch(() => {});
+  return axios.post(
+    `${apiBase.value}/api/dictionaries/${key}/rows/delete-batch`,
+    body,
+    {
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      timeout: 0
+    }
+  );
+}
+
+const DICTIONARY_DELETE_CLIENT_CHUNK = 2000;
+
+async function deleteSelectedBulk() {
+  const key = selectedForDelete.value;
+  if (!key) return;
+  const ids = Object.keys(selectedDeleteIds.value)
+    .map((x) => parseInt(x, 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (!ids.length) {
+    error.value = 'Отметьте хотя бы одну запись на текущей странице.';
+    return;
+  }
+  // eslint-disable-next-line no-alert
+  if (
+    !window.confirm(
+      `Удалить выбранные записи (${ids.length} шт.) из справочника? Операция необратима.`
+    )
+  ) {
+    return;
+  }
+  try {
+    loading.value = true;
+    error.value = '';
+    for (let i = 0; i < ids.length; i += DICTIONARY_DELETE_CLIENT_CHUNK) {
+      const slice = ids.slice(i, i + DICTIONARY_DELETE_CLIENT_CHUNK);
+      await postDeleteBatch(key, { ids: slice });
+    }
+    await reloadDictionaryPageAndClearSelection(key);
+  } catch (e) {
+    console.error('Bulk delete error:', e);
+    error.value =
+      e?.response?.data?.message || 'Не удалось удалить выбранные записи.';
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function deleteAllInDictionary() {
+  const key = selectedForDelete.value;
+  if (!key) return;
+  const d = dictionaries.value.find((x) => x.key === key);
+  const label = d?.label || key;
+  // eslint-disable-next-line no-alert
+  if (
+    !window.confirm(
+      `Удалить ВСЕ записи справочника «${label}»? Операция необратима.`
+    )
+  ) {
+    return;
+  }
+  // eslint-disable-next-line no-alert
+  if (!window.confirm('Подтвердите полное удаление ещё раз.')) {
+    return;
+  }
+  try {
+    loading.value = true;
+    error.value = '';
+    await postDeleteBatch(key, { deleteAll: true });
+    currentPage.value = 1;
+    await reloadDictionaryPageAndClearSelection(key);
+  } catch (e) {
+    console.error('Delete all error:', e);
+    error.value =
+      e?.response?.data?.message || 'Не удалось удалить все записи справочника.';
+  } finally {
+    loading.value = false;
+  }
+}
+
+function goToPage(p) {
+  const next = Math.min(Math.max(1, p), totalPages.value);
+  if (next === currentPage.value) return;
+  currentPage.value = next;
+  clearDeleteSelection();
+  const key = activeDictKey.value;
+  if (key) loadDictionary(key);
+}
+
+watch(pageSize, (n, o) => {
+  if (n === o) return;
+  currentPage.value = 1;
+  const key = activeDictKey.value;
+  if (key && activeSection.value !== 'intro') loadDictionary(key);
+});
+
+watch(activeSection, (s) => {
+  clearDeleteSelection();
+  if (s === 'intro') return;
+  currentPage.value = 1;
+  const key = activeDictKey.value;
+  if (key) loadDictionary(key);
+});
 
 function getAuthHeaders() {
   const token = getToken();
@@ -58,21 +244,46 @@ async function loadDictionaries() {
   }
 }
 
-async function loadDictionary(key) {
+async function loadDictionary(key, opts = {}) {
+  const resetPage = opts.resetPage === true;
   if (!key) return;
+  if (resetPage) currentPage.value = 1;
   try {
     loading.value = true;
     error.value = '';
-    const [metaResp, rowsResp] = await Promise.all([
-      axios.get(`${apiBase.value}/api/dictionaries/${key}/meta`, {
-        headers: getAuthHeaders()
-      }),
-      axios.get(`${apiBase.value}/api/dictionaries/${key}/rows`, {
-        headers: getAuthHeaders()
-      })
-    ]);
-    meta.value = metaResp.data || {};
+    const offset = Math.max(0, (currentPage.value - 1) * pageSize.value);
+    const needMeta = metaLoadedForKey.value !== key;
+
+    let metaResp = null;
+    let rowsResp;
+    if (needMeta) {
+      [metaResp, rowsResp] = await Promise.all([
+        axios.get(`${apiBase.value}/api/dictionaries/${key}/meta`, {
+          headers: getAuthHeaders()
+        }),
+        axios.get(`${apiBase.value}/api/dictionaries/${key}/rows`, {
+          headers: getAuthHeaders(),
+          params: {
+            limit: pageSize.value,
+            offset
+          }
+        })
+      ]);
+      meta.value = metaResp.data || {};
+      metaLoadedForKey.value = key;
+    } else {
+      rowsResp = await axios.get(`${apiBase.value}/api/dictionaries/${key}/rows`, {
+        headers: getAuthHeaders(),
+        params: {
+          limit: pageSize.value,
+          offset
+        }
+      });
+    }
+
     rows.value = (rowsResp.data && rowsResp.data.items) || [];
+    const t = rowsResp.data && rowsResp.data.total;
+    rowsTotal.value = Number.isFinite(Number(t)) ? Number(t) : rows.value.length;
   } catch (e) {
     console.error('Error loading dictionary:', e);
     error.value = 'Не удалось загрузить данные выбранного справочника.';
@@ -201,7 +412,7 @@ async function importFromFile() {
       }, добавлено ${aggregated.inserted || 0}, обновлено ${aggregated.updated || 0}, пропущено ${
         aggregated.skipped || 0
       }.`;
-      await loadDictionary(key);
+      await loadDictionary(key, { resetPage: true });
       selectedImportFile.value = null;
       return;
     }
@@ -211,7 +422,7 @@ async function importFromFile() {
       importInfo.value = `Импорт завершён: всего ${stats?.total ?? 0}, добавлено ${
         stats?.inserted ?? 0
       }, обновлено ${stats?.updated ?? 0}, пропущено ${stats?.skipped ?? 0}.`;
-      await loadDictionary(key);
+      await loadDictionary(key, { resetPage: true });
       selectedImportFile.value = null;
       return;
     }
@@ -352,7 +563,7 @@ async function deleteRow(row) {
         headers: getAuthHeaders()
       }
     );
-    await loadDictionary(key);
+    await reloadDictionaryPageAndClearSelection(key);
   } catch (e) {
     console.error('Error deleting dictionary row:', e);
     error.value = 'Не удалось удалить запись справочника.';
@@ -439,12 +650,14 @@ onMounted(() => {
               справочник и добавьте новые записи или отредактируйте существующие.
             </li>
             <li>
-              В разделе <strong>«Удаление данных»</strong> можно удалить ошибочно
-              добавленные записи из выбранного справочника.
+              В разделе <strong>«Удаление данных»</strong> можно удалить ошибочные записи —
+              по одной, несколько отмеченных на странице или все записи справочника (с двойным
+              подтверждением).
             </li>
             <li>
-              В разделе <strong>«Просмотр данных»</strong> выбирается справочник в левой
-              части, а в правой отображается вся его текущая информация.
+              В разделах с таблицами данные показываются <strong>постранично</strong> (можно выбрать
+              число строк на страницу). В блоке «Просмотр» слева — справочники, справа — страница
+              таблицы.
             </li>
           </ul>
           <p class="card-text">
@@ -464,7 +677,7 @@ onMounted(() => {
           <select
             v-model="selectedForUpdate"
             class="form-select"
-            @change="loadDictionary(selectedForUpdate)"
+            @change="loadDictionary(selectedForUpdate, { resetPage: true })"
           >
             <option v-if="!hasDictionaries" disabled value="">
               Справочники не найдены
@@ -569,6 +782,64 @@ onMounted(() => {
 
       <div v-if="!loading && visibleColumns.length">
         <h6>Текущие данные</h6>
+        <div
+          class="dictionary-pager d-flex flex-wrap align-items-center gap-2 mb-2 text-muted small"
+        >
+          <span>{{ rowsRangeLabel }}</span>
+          <label class="mb-0"
+            >На странице
+            <select
+              v-model.number="pageSize"
+              class="form-select form-select-sm d-inline-block w-auto ms-1"
+              style="min-width: 5rem"
+            >
+              <option v-for="ps in PAGE_SIZE_OPTIONS" :key="ps" :value="ps">
+                {{ ps }}
+              </option>
+            </select>
+          </label>
+          <div class="btn-group btn-group-sm ms-1" role="group">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading || currentPage <= 1"
+              title="В начало"
+              @click="goToPage(1)"
+            >
+              ««
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading || currentPage <= 1"
+              title="Назад"
+              @click="goToPage(currentPage - 1)"
+            >
+              ‹
+            </button>
+            <button type="button" class="btn btn-outline-secondary" disabled>
+              {{ currentPage }} / {{ totalPages }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading || currentPage >= totalPages"
+              title="Вперёд"
+              @click="goToPage(currentPage + 1)"
+            >
+              ›
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading || currentPage >= totalPages"
+              title="В конец"
+              @click="goToPage(totalPages)"
+            >
+              »»
+            </button>
+          </div>
+        </div>
         <div class="table-responsive mb-3">
           <table class="table table-sm table-striped align-middle">
             <thead>
@@ -646,7 +917,7 @@ onMounted(() => {
           <select
             v-model="selectedForDelete"
             class="form-select"
-            @change="loadDictionary(selectedForDelete)"
+            @change="loadDictionary(selectedForDelete, { resetPage: true })"
           >
             <option v-if="!hasDictionaries" disabled value="">
               Справочники не найдены
@@ -664,11 +935,106 @@ onMounted(() => {
         <div class="alert alert-warning">
           Внимание: удаление записей из справочников может повлиять на работу модулей
           тренажёра и сохранённых документов. Используйте эту функцию осторожно.
+          Отметки чекбоксов действуют на <strong>текущую страницу</strong>; перейдите по страницам,
+          чтобы отметить строки подряд несколькими шагами.
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            :disabled="loading || selectedDeleteCount < 1"
+            @click="deleteSelectedBulk"
+          >
+            Удалить выбранные{{ selectedDeleteCount ? ` (${selectedDeleteCount})` : '' }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            :disabled="loading || !rows.length"
+            @click="selectAllRowsOnPage"
+          >
+            На странице: выбрать все
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            :disabled="loading || selectedDeleteCount < 1"
+            @click="deselectAllRowsOnPage"
+          >
+            Снять выбор на странице
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger ms-md-auto"
+            :disabled="loading"
+            @click="deleteAllInDictionary"
+          >
+            Удалить все записи справочника
+          </button>
+        </div>
+        <div
+          class="dictionary-pager d-flex flex-wrap align-items-center gap-2 mb-2 text-muted small"
+        >
+          <span>{{ rowsRangeLabel }}</span>
+          <label class="mb-0"
+            >На странице
+            <select
+              v-model.number="pageSize"
+              class="form-select form-select-sm d-inline-block w-auto ms-1"
+              style="min-width: 5rem"
+            >
+              <option v-for="ps in PAGE_SIZE_OPTIONS" :key="ps" :value="ps">
+                {{ ps }}
+              </option>
+            </select>
+          </label>
+          <div class="btn-group btn-group-sm ms-1" role="group">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading || currentPage <= 1"
+              title="В начало"
+              @click="goToPage(1)"
+            >
+              ««
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading || currentPage <= 1"
+              title="Назад"
+              @click="goToPage(currentPage - 1)"
+            >
+              ‹
+            </button>
+            <button type="button" class="btn btn-outline-secondary" disabled>
+              {{ currentPage }} / {{ totalPages }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading || currentPage >= totalPages"
+              title="Вперёд"
+              @click="goToPage(currentPage + 1)"
+            >
+              ›
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading || currentPage >= totalPages"
+              title="В конец"
+              @click="goToPage(totalPages)"
+            >
+              »»
+            </button>
+          </div>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-striped align-middle">
             <thead>
               <tr>
+                <th scope="col" class="border-0" style="width: 2.25rem" />
                 <th>ID</th>
                 <th v-for="col in visibleColumns" :key="col">
                   {{ meta.fieldLabels?.[col] || col }}
@@ -678,6 +1044,16 @@ onMounted(() => {
             </thead>
             <tbody>
               <tr v-for="row in rows" :key="row.id">
+                <td>
+                  <input
+                    type="checkbox"
+                    class="form-check-input mt-0"
+                    :checked="!!selectedDeleteIds[row.id]"
+                    @change="
+                      setDeleteSelected(row.id, $event.target && $event.target.checked === true)
+                    "
+                  />
+                </td>
                 <td>{{ row.id }}</td>
                 <td v-for="col in visibleColumns" :key="col">
                   {{ row[col] }}
@@ -693,7 +1069,7 @@ onMounted(() => {
                 </td>
               </tr>
               <tr v-if="!rows.length">
-                <td :colspan="visibleColumns.length + 2" class="text-center">
+                <td :colspan="visibleColumns.length + 3" class="text-center">
                   Записей для удаления нет.
                 </td>
               </tr>
@@ -716,7 +1092,7 @@ onMounted(() => {
               :class="{ active: selectedForView === d.key }"
               @click="
                 selectedForView = d.key;
-                loadDictionary(d.key);
+                loadDictionary(d.key, { resetPage: true });
               "
             >
               {{ d.label }}
@@ -728,7 +1104,68 @@ onMounted(() => {
         </div>
         <div class="col-md-8">
           <div v-if="loading">Загрузка данных...</div>
+          <div v-else-if="!visibleColumns.length" class="text-muted small">
+            Выберите справочник слева.
+          </div>
           <div v-else>
+            <div
+              class="dictionary-pager d-flex flex-wrap align-items-center gap-2 mb-2 text-muted small"
+            >
+              <span>{{ rowsRangeLabel }}</span>
+              <label class="mb-0"
+                >На странице
+                <select
+                  v-model.number="pageSize"
+                  class="form-select form-select-sm d-inline-block w-auto ms-1"
+                  style="min-width: 5rem"
+                >
+                  <option v-for="ps in PAGE_SIZE_OPTIONS" :key="ps" :value="ps">
+                    {{ ps }}
+                  </option>
+                </select>
+              </label>
+              <div class="btn-group btn-group-sm ms-1" role="group">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  :disabled="loading || currentPage <= 1"
+                  title="В начало"
+                  @click="goToPage(1)"
+                >
+                  ««
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  :disabled="loading || currentPage <= 1"
+                  title="Назад"
+                  @click="goToPage(currentPage - 1)"
+                >
+                  ‹
+                </button>
+                <button type="button" class="btn btn-outline-secondary" disabled>
+                  {{ currentPage }} / {{ totalPages }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  :disabled="loading || currentPage >= totalPages"
+                  title="Вперёд"
+                  @click="goToPage(currentPage + 1)"
+                >
+                  ›
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  :disabled="loading || currentPage >= totalPages"
+                  title="В конец"
+                  @click="goToPage(totalPages)"
+                >
+                  »»
+                </button>
+              </div>
+            </div>
             <div class="table-responsive">
               <table class="table table-sm table-striped align-middle">
                 <thead>
