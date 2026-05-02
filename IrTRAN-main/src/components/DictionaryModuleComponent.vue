@@ -130,6 +130,8 @@ async function importFromFile() {
     return;
   }
 
+  const isXlsx = lower.endsWith('.xlsx');
+
   try {
     loading.value = true;
     error.value = '';
@@ -138,15 +140,32 @@ async function importFromFile() {
 
     let rawRows = null;
 
-    try {
-      if (lower.endsWith('.xlsx')) {
+    if (isXlsx) {
+      try {
         rawRows = await parseDictionaryXlsxFile(selectedImportFile.value);
-      } else {
+      } catch (parseErr) {
+        console.error('Dictionary XLSX parse error:', parseErr);
+        error.value =
+          'Не удалось прочитать Excel (.xlsx): проверьте, что файл сохранён как .xlsx и не повреждён. ' +
+          String(parseErr?.message || parseErr || '');
+        return;
+      }
+      if (!Array.isArray(rawRows) || rawRows.length === 0) {
+        error.value =
+          'В Excel не найдено строк с данными (проверьте листы: данные не на скрытом листе и первая строка — заголовки колонок). ' +
+          'Импорт больших файлов выполняется только пакетным способом — старая загрузка одним файлом отключена для .xlsx, чтобы не было таймаута 504.';
+        return;
+      }
+    } else {
+      try {
         const text = await selectedImportFile.value.text();
         rawRows = parseDictionaryJsonFromText(text, key);
+      } catch (parseErr) {
+        rawRows = null;
       }
-    } catch (parseErr) {
-      rawRows = null;
+      if (!Array.isArray(rawRows) || rawRows.length === 0) {
+        rawRows = null;
+      }
     }
 
     if (Array.isArray(rawRows) && rawRows.length > 0) {
@@ -184,13 +203,17 @@ async function importFromFile() {
       }.`;
       await loadDictionary(key);
       selectedImportFile.value = null;
-    } else {
+      return;
+    }
+
+    if (!isXlsx) {
       const stats = await importFromFileMultipartFallback(key, selectedImportFile.value);
       importInfo.value = `Импорт завершён: всего ${stats?.total ?? 0}, добавлено ${
         stats?.inserted ?? 0
       }, обновлено ${stats?.updated ?? 0}, пропущено ${stats?.skipped ?? 0}.`;
       await loadDictionary(key);
       selectedImportFile.value = null;
+      return;
     }
   } catch (e) {
     console.error('Error importing dictionary file:', e);

@@ -61,6 +61,39 @@ export function parseDictionaryJsonFromText(text, dictKey) {
   throw err;
 }
 
+/**
+ * Как на сервере: первая строка — заголовки, дальше значения (на случай, когда
+ * sheet_to_json не строит ключи из заголовков из-за формата первой строки).
+ */
+function sheetMatrixToRowObjects(matrix) {
+  if (!matrix || matrix.length < 2) return [];
+  const headers = (matrix[0] || []).map((h) => String(h ?? '').trim());
+  const result = [];
+  for (let i = 1; i < matrix.length; i += 1) {
+    const raw = matrix[i] || [];
+    const rowObj = {};
+    headers.forEach((h, idx) => {
+      if (!h) return;
+      const value = raw[idx];
+      if (value === undefined || value === null || value === '') return;
+      rowObj[h] = typeof value === 'string' ? value.trim() : value;
+    });
+    if (Object.keys(rowObj).length > 0) result.push(rowObj);
+  }
+  return result;
+}
+
+function parseOneSheetToObjects(XLSX, ws) {
+  if (!ws) return [];
+  const auto = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+  const nonEmptyRows = auto.filter(
+    (row) => row && typeof row === 'object' && Object.keys(row).length > 0
+  );
+  if (nonEmptyRows.length > 0) return nonEmptyRows;
+  const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  return sheetMatrixToRowObjects(matrix);
+}
+
 export async function parseDictionaryXlsxFile(file) {
   const XLSX = await import('xlsx');
   const buf = await file.arrayBuffer();
@@ -70,8 +103,12 @@ export async function parseDictionaryXlsxFile(file) {
     err.statusCode = 400;
     throw err;
   }
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    const rows = parseOneSheetToObjects(XLSX, ws);
+    if (rows.length > 0) return rows;
+  }
+  return [];
 }
 
 export function aggregateImportBatchStats(acc, stats) {
