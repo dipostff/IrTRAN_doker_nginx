@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import { getToken } from '@/helpers/keycloak';
+import { getToken, updateToken } from '@/helpers/keycloak';
 
 const activeSection = ref('intro'); // intro | update | delete | view
 const dictionaries = ref([]);
@@ -98,6 +98,7 @@ async function importFromFile() {
     loading.value = true;
     error.value = '';
     importInfo.value = '';
+    await updateToken(30).catch(() => {});
     const formData = new FormData();
     formData.append('file', selectedImportFile.value);
     const { data } = await axios.post(
@@ -106,7 +107,8 @@ async function importFromFile() {
       {
         headers: {
           ...getAuthHeaders()
-        }
+        },
+        timeout: 0
       }
     );
     const stats = data?.stats || {};

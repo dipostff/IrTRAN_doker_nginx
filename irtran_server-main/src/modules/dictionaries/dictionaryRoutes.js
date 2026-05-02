@@ -10,8 +10,12 @@ const sequelize = require('../sequelize/db');
 const queryInterface = sequelize.getQueryInterface();
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 } // 20 MB
+  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB (крупные XLSX)
 });
+
+/** Чанки для массового импорта (минимизация времени запросов и обход proxy timeout) */
+const DICT_IMPORT_CHUNK = 450;
+const DICT_IMPORT_PREFETCH_CHUNK = 800;
 
 // Разрешённые справочники. Ключ используется на фронтенде.
 // Таблицы уже существуют в БД и используются формами документов.
@@ -443,6 +447,142 @@ function validateRowBySchema(row, tableMeta) {
   return { ok: errors.length === 0, errors };
 }
 
+function cellLookupKey(val) {
+  if (val === null || val === undefined) return '__NULL';
+  if (typeof val === 'number' && Number.isFinite(val)) return `n:${val}`;
+  return `s:${String(val)}`;
+}
+
+/**
+ * Совпадает с прежней логикой: поля из uniqueBy присутствуют → AND по ним, иначе fallback code/name/title.
+ * Массив колонок сортируется для стабильного составного ключа.
+ */
+function resolveUniqueColumns(row, uniqueBy) {
+  let cols = (uniqueBy || []).filter((c) => row[c] !== undefined && row[c] !== '');
+  if (!cols.length) {
+    const fb = ['code', 'name', 'title'].find((c) => row[c] !== undefined && row[c] !== '');
+    if (fb) cols = [fb];
+  }
+  if (!cols.length) return null;
+  return [...new Set(cols)].sort();
+}
+
+function lookupSig(uniqueCols) {
+  return uniqueCols.join('|');
+}
+
+function rowCompositeLookupKey(uniqueCols, row) {
+  return uniqueCols.map((c) => cellLookupKey(row[c])).join('\t');
+}
+
+function chunkArray(arr, chunkSize) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += chunkSize) {
+    out.push(arr.slice(i, i + chunkSize));
+  }
+  return out;
+}
+
+async function prefetchDictionaryCandidates(tableName, columnsToLoad, distinctByColumn, fetchChunkSize) {
+  const byId = new Map();
+
+  async function ingestColumn(column, valuesRaw) {
+    const values = valuesRaw.filter((v) => v !== undefined && v !== '');
+    for (const part of chunkArray(values, fetchChunkSize)) {
+      if (!part.length) continue;
+      const [found] = await sequelize.query(
+        `SELECT ${columnsToLoad} FROM \`${tableName}\` WHERE \`${column}\` IN (:vals)`,
+        { replacements: { vals: part } }
+      );
+      for (const r of found || []) {
+        const idVal = r.id;
+        if (idVal !== undefined && idVal !== null) byId.set(idVal, r);
+      }
+    }
+  }
+
+  await Promise.all(
+    Object.entries(distinctByColumn)
+      .filter(([, set]) => set && set.size)
+      .map(([col, set]) => ingestColumn(col, [...set]))
+  );
+
+  return [...byId.values()];
+}
+
+/**
+ * По каждой сигнатуре столбцов (например code|name) строится Map ключ поиска → id существующей строки (первое совпадение).
+ */
+function buildLookupMaps(prefetchRows, signatures) {
+  const maps = new Map();
+  for (const sig of signatures) {
+    maps.set(sig, new Map());
+  }
+  const colsBySig = new Map(signatures.map((s) => [s, s.split('|')]));
+
+  for (const dbRow of prefetchRows) {
+    for (const sig of signatures) {
+      const cols = colsBySig.get(sig);
+      const lk = rowCompositeLookupKey(cols, dbRow);
+      const bucket = maps.get(sig);
+      if (!bucket.has(lk)) bucket.set(lk, dbRow.id);
+    }
+  }
+
+  return maps;
+}
+
+async function bulkInsertChunk(tableName, normalizedRowsChunk) {
+  if (!normalizedRowsChunk.length) return 0;
+
+  const cols = [...new Set(normalizedRowsChunk.flatMap((r) => Object.keys(r)))];
+  cols.sort((a, b) => (a === b ? 0 : a < b ? -1 : 1));
+
+  const rowFragments = normalizedRowsChunk.map((row, ri) => {
+    const placeholders = cols.map((c, ci) => `:r${ri}_c${ci}`);
+    return `(${placeholders.join(', ')})`;
+  });
+
+  const sql = `INSERT INTO \`${tableName}\` (${cols.map((c) => `\`${c}\``).join(', ')}) VALUES ${rowFragments.join(
+    ', '
+  )}`;
+
+  const replacements = {};
+  normalizedRowsChunk.forEach((row, ri) => {
+    cols.forEach((c, ci) => {
+      const k = `r${ri}_c${ci}`;
+      replacements[k] =
+        Object.prototype.hasOwnProperty.call(row, c) && row[c] !== undefined ? row[c] : null;
+    });
+  });
+
+  await sequelize.query(sql, { replacements });
+  return normalizedRowsChunk.length;
+}
+
+async function runDictionaryUpdatesBatched(tableName, ops, concurrency, stats) {
+  async function handleOne(op) {
+    try {
+      const applied = await applyDictionaryUpdate(tableName, op.data, op.id);
+      if (applied) stats.updated += 1;
+      else stats.skipped += 1;
+    } catch (e) {
+      stats.skipped += 1;
+      if (stats.errors.length < 20) {
+        stats.errors.push({
+          reason: 'db_error',
+          message: e?.message || 'Ошибка БД при обновлении',
+          sample: { id: op.id }
+        });
+      }
+    }
+  }
+
+  for (const batch of chunkArray(ops, Math.max(1, concurrency))) {
+    await Promise.all(batch.map((op) => handleOne(op)));
+  }
+}
+
 function parseJsonRows(fileBuffer, dictKey) {
   let data;
   try {
@@ -528,6 +668,39 @@ function buildTemplateRows(dictKey, def, tableMeta) {
   return [row];
 }
 
+async function applyDictionaryUpdate(tableName, row, id) {
+  const updateData = { ...row };
+  delete updateData.id;
+  if (!Object.keys(updateData).length) return false;
+  const setSql = Object.keys(updateData)
+    .map((c) => `\`${c}\` = :${c}`)
+    .join(', ');
+  await sequelize.query(`UPDATE \`${tableName}\` SET ${setSql} WHERE id = :id`, {
+    replacements: { ...updateData, id }
+  });
+  return true;
+}
+
+async function insertDictionaryRowSequential(def, row, stats) {
+  const insertData = { ...row };
+  delete insertData.id;
+  if (!Object.keys(insertData).length) {
+    stats.skipped += 1;
+    return;
+  }
+  const columnsSql = Object.keys(insertData)
+    .map((c) => `\`${c}\``)
+    .join(', ');
+  const valuesSql = Object.keys(insertData)
+    .map((c) => `:${c}`)
+    .join(', ');
+  await sequelize.query(
+    `INSERT INTO \`${def.table}\` (${columnsSql}) VALUES (${valuesSql})`,
+    { replacements: insertData }
+  );
+  stats.inserted += 1;
+}
+
 async function upsertDictionaryRows(def, rows, allowedColumns, uniqueBy, tableMeta) {
   const stats = {
     total: rows.length,
@@ -536,6 +709,9 @@ async function upsertDictionaryRows(def, rows, allowedColumns, uniqueBy, tableMe
     skipped: 0,
     errors: []
   };
+
+  /** @type {Array<{ row: Record<string, unknown>, uniqueCols: string[] }>} */
+  const candidates = [];
 
   for (const rawRow of rows) {
     const row = normalizeRowTypes(sanitizeRow(rawRow || {}, allowedColumns), tableMeta);
@@ -552,83 +728,110 @@ async function upsertDictionaryRows(def, rows, allowedColumns, uniqueBy, tableMe
           details: schemaValidation.errors,
           sample: {
             name: row.name || null,
-            code: row.code || null
+            code: row.code || null,
+            title: row.title || null
           }
         });
       }
       continue;
     }
-
-    const uniqueCols = (uniqueBy || []).filter((c) => row[c] !== undefined && row[c] !== '');
-    if (!uniqueCols.length) {
-      const fallback = ['code', 'name', 'title'].find((c) => row[c] !== undefined && row[c] !== '');
-      if (fallback) uniqueCols.push(fallback);
-    }
-    if (!uniqueCols.length) {
+    const uniqueCols = resolveUniqueColumns(row, uniqueBy);
+    if (!uniqueCols || !uniqueCols.length) {
       stats.skipped += 1;
       continue;
     }
+    candidates.push({ row, uniqueCols });
+  }
 
-    const whereSql = uniqueCols.map((c) => `\`${c}\` = :u_${c}`).join(' AND ');
-    const replacements = {};
-    uniqueCols.forEach((c) => {
-      replacements[`u_${c}`] = row[c];
+  /** Как при последовательной записи: при повторном ключе в файле сохраняется последняя строка */
+  const lastByComposite = new Map();
+  let dupInFile = 0;
+  for (const cand of candidates) {
+    const sig = lookupSig(cand.uniqueCols);
+    const lk = `${sig}\u0001${rowCompositeLookupKey(cand.uniqueCols, cand.row)}`;
+    if (lastByComposite.has(lk)) dupInFile += 1;
+    lastByComposite.set(lk, cand);
+  }
+  const workItems = [...lastByComposite.values()];
+  stats.skipped += dupInFile;
+
+  if (!workItems.length) {
+    return stats;
+  }
+
+  const signatures = [...new Set(workItems.map((w) => lookupSig(w.uniqueCols)))];
+  const distinctByColumn = {};
+  for (const { row: r, uniqueCols: uc } of workItems) {
+    uc.forEach((col) => {
+      if (!distinctByColumn[col]) distinctByColumn[col] = new Set();
+      distinctByColumn[col].add(r[col]);
     });
+  }
 
-    try {
-      const [existing] = await sequelize.query(
-        `SELECT id FROM \`${def.table}\` WHERE ${whereSql} LIMIT 1`,
-        { replacements }
-      );
+  const metaColumnNames = Object.keys(tableMeta || {}).filter(Boolean);
+  const selectColsQuoted = [...new Set(['id', ...metaColumnNames])]
+    .map((c) => `\`${String(c)}\``)
+    .join(', ');
 
-      if (existing.length) {
-        const updateData = { ...row };
-        delete updateData.id;
-        if (!Object.keys(updateData).length) {
-          stats.skipped += 1;
-          continue;
-        }
-        const setSql = Object.keys(updateData)
-          .map((c) => `\`${c}\` = :${c}`)
-          .join(', ');
-        await sequelize.query(`UPDATE \`${def.table}\` SET ${setSql} WHERE id = :id`, {
-          replacements: { ...updateData, id: existing[0].id }
-        });
-        stats.updated += 1;
-        continue;
-      }
+  const prefetchRows = await prefetchDictionaryCandidates(
+    def.table,
+    selectColsQuoted,
+    distinctByColumn,
+    DICT_IMPORT_PREFETCH_CHUNK
+  );
 
-      const insertData = { ...row };
-      delete insertData.id;
-      if (!Object.keys(insertData).length) {
+  const lookupMaps = buildLookupMaps(prefetchRows, signatures);
+
+  const toInsertNorm = [];
+  const toUpdate = [];
+
+  for (const wi of workItems) {
+    const sig = lookupSig(wi.uniqueCols);
+    const bucket = lookupMaps.get(sig);
+    const lk = rowCompositeLookupKey(wi.uniqueCols, wi.row);
+    const existingId = bucket ? bucket.get(lk) : undefined;
+
+    if (existingId !== undefined && existingId !== null) {
+      toUpdate.push({ id: existingId, data: { ...wi.row } });
+    } else {
+      const ins = { ...wi.row };
+      delete ins.id;
+      if (!Object.keys(ins).length) {
         stats.skipped += 1;
-        continue;
-      }
-      const columnsSql = Object.keys(insertData)
-        .map((c) => `\`${c}\``)
-        .join(', ');
-      const valuesSql = Object.keys(insertData)
-        .map((c) => `:${c}`)
-        .join(', ');
-      await sequelize.query(
-        `INSERT INTO \`${def.table}\` (${columnsSql}) VALUES (${valuesSql})`,
-        { replacements: insertData }
-      );
-      stats.inserted += 1;
-    } catch (rowError) {
-      stats.skipped += 1;
-      if (stats.errors.length < 20) {
-        stats.errors.push({
-          reason: 'db_error',
-          message: rowError?.message || 'Ошибка БД при обработке строки',
-          sample: {
-            name: row.name || null,
-            code: row.code || null
-          }
-        });
+      } else {
+        toInsertNorm.push(ins);
       }
     }
   }
+
+  for (const batch of chunkArray(toInsertNorm, DICT_IMPORT_CHUNK)) {
+    if (!batch.length) continue;
+    try {
+      await bulkInsertChunk(def.table, batch);
+      stats.inserted += batch.length;
+    } catch (chunkErr) {
+      console.error('bulkInsertChunk fallback (sequential):', chunkErr?.message || chunkErr);
+      for (const normRow of batch) {
+        try {
+          await insertDictionaryRowSequential(def, normRow, stats);
+        } catch (rowError) {
+          stats.skipped += 1;
+          if (stats.errors.length < 20) {
+            stats.errors.push({
+              reason: 'db_error',
+              message: rowError?.message || 'Ошибка БД при вставке',
+              sample: {
+                code: normRow.code ?? null,
+                name: normRow.name ?? normRow.title ?? null
+              }
+            });
+          }
+        }
+      }
+    }
+  }
+
+  await runDictionaryUpdatesBatched(def.table, toUpdate, 64, stats);
 
   return stats;
 }
