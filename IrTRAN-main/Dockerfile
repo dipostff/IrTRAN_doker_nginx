@@ -23,11 +23,11 @@ ENV VITE_KEYCLOAK_CLIENT_ID=$VITE_KEYCLOAK_CLIENT_ID
 # Параметр BUILD_DATE пробивает кэш слоя сборки после git pull (см. docker-compose frontend.build.args).
 RUN echo "vite-build-marker=${BUILD_DATE:-0}" && npm run build
 
-# Статика через nginx
+# Статика через nginx (см. docker/spa-static.conf — без кеша SPA, чтобы не залипал старый JS после docker build)
 FROM nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
-RUN echo 'server { root /usr/share/nginx/html; index index.html; location / { try_files $uri $uri/ /index.html; } }' > /etc/nginx/conf.d/default.conf
+COPY docker/spa-static.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
