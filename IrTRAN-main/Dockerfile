@@ -13,12 +13,15 @@ ARG VITE_API_URL=
 ARG VITE_KEYCLOAK_URL=http://localhost:8080
 ARG VITE_KEYCLOAK_REALM=master
 ARG VITE_KEYCLOAK_CLIENT_ID=irtran-client
+ARG BUILD_DATE=0
+
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL
 ENV VITE_KEYCLOAK_REALM=$VITE_KEYCLOAK_REALM
 ENV VITE_KEYCLOAK_CLIENT_ID=$VITE_KEYCLOAK_CLIENT_ID
 
-RUN npm run build
+# Параметр BUILD_DATE пробивает кэш слоя сборки после git pull (см. docker-compose frontend.build.args).
+RUN echo "vite-build-marker=${BUILD_DATE:-0}" && npm run build
 
 # Статика через nginx
 FROM nginx:alpine
