@@ -408,6 +408,22 @@ function sanitizeRow(row, allowedColumns) {
   return clean;
 }
 
+/** Sequelize / mysql2 INSERT: в ответе приходит insertId (number | bigint) либо OkPacket */
+function coerceInsertId(value) {
+  if (value == null) return null;
+  if (typeof value === 'bigint') {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'insertId')) {
+    return coerceInsertId(value.insertId);
+  }
+  return null;
+}
+
 function normalizeRowTypes(row, tableMeta) {
   const out = { ...row };
   Object.keys(out).forEach((col) => {
@@ -1029,10 +1045,11 @@ function registerDictionaryRoutes(app) {
         limit = Math.min(limit, DICTIONARY_ROWS_MAX_LIMIT);
         const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
-        const [[countRow]] = await sequelize.query(
+        const [countRows] = await sequelize.query(
           `SELECT COUNT(*) AS cnt FROM \`${def.table}\``,
           {}
         );
+        const countRow = Array.isArray(countRows) ? countRows[0] : null;
         let rawCnt =
           countRow && typeof countRow === 'object' && 'cnt' in countRow ? countRow.cnt : undefined;
         if (rawCnt === undefined && countRow && typeof countRow === 'object') {
@@ -1295,24 +1312,32 @@ function registerDictionaryRoutes(app) {
           });
         }
 
-        const columnsSql = Object.keys(data)
+        const normalized = normalizeRowTypes(data, meta);
+        const validation = validateRowBySchema(normalized, meta);
+        if (!validation.ok) {
+          return res.status(400).json({
+            error: 'validation_failed',
+            message: validation.errors.join(' '),
+            errors: validation.errors
+          });
+        }
+
+        const columnsSql = Object.keys(normalized)
           .map((c) => `\`${c}\``)
           .join(', ');
-        const valuesPlaceholders = Object.keys(data)
+        const valuesPlaceholders = Object.keys(normalized)
           .map((c) => `:${c}`)
           .join(', ');
 
-        const [result] = await sequelize.query(
+        const insertOutcome = await sequelize.query(
           `INSERT INTO \`${def.table}\` (${columnsSql}) VALUES (${valuesPlaceholders})`,
           {
-            replacements: data
+            replacements: normalized
           }
         );
 
-        const insertedId =
-          result && typeof result.insertId === 'number'
-            ? result.insertId
-            : null;
+        const rawFirst = Array.isArray(insertOutcome) ? insertOutcome[0] : insertOutcome;
+        const insertedId = coerceInsertId(rawFirst);
 
         if (!insertedId) {
           return res.status(201).json({ ok: true });
@@ -1375,14 +1400,24 @@ function registerDictionaryRoutes(app) {
           });
         }
 
-        const setSql = Object.keys(data)
+        const normalized = normalizeRowTypes(data, meta);
+        const validation = validateRowBySchema(normalized, meta);
+        if (!validation.ok) {
+          return res.status(400).json({
+            error: 'validation_failed',
+            message: validation.errors.join(' '),
+            errors: validation.errors
+          });
+        }
+
+        const setSql = Object.keys(normalized)
           .map((c) => `\`${c}\` = :${c}`)
           .join(', ');
 
         await sequelize.query(
           `UPDATE \`${def.table}\` SET ${setSql} WHERE id = :id`,
           {
-            replacements: { ...data, id }
+            replacements: { ...normalized, id }
           }
         );
 
