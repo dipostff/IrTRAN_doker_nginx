@@ -17,6 +17,12 @@ const upload = multer({
 const DICT_IMPORT_CHUNK = 450;
 const DICT_IMPORT_PREFETCH_CHUNK = 800;
 
+/** Пакеты из фронта: короткий HTTP-ответ при жёстком лимите на стороне облака (Timeweb и т.п.) */
+const MAX_DICTIONARY_IMPORT_BATCH_ROWS = Math.min(
+  parseInt(process.env.DICTIONARY_IMPORT_MAX_ROWS, 10) || 1200,
+  5000
+);
+
 // Разрешённые справочники. Ключ используется на фронтенде.
 // Таблицы уже существуют в БД и используются формами документов.
 const DICTIONARIES = {
@@ -583,6 +589,39 @@ async function runDictionaryUpdatesBatched(tableName, ops, concurrency, stats) {
   }
 }
 
+/**
+ * То же сопоставление заголовков, что при разборе XLSX на сервере (RU/EN, алиасы).
+ */
+function mapPayloadRowsUsingImportFlagMap(dictKey, def, tableMeta, rawRows) {
+  const { map: flagMap, allowedColumns } = buildFlagMap(def, tableMeta, dictKey, {
+    includeRuLabels: true
+  });
+  const mapped = [];
+  for (const raw of rawRows) {
+    const rowObj = {};
+    Object.entries(raw || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      const col = flagMap.get(normalizeFlag(key));
+      if (!col || !allowedColumns.includes(col)) return;
+      rowObj[col] = typeof value === 'string' ? String(value).trim() : value;
+    });
+    if (Object.keys(rowObj).length) mapped.push(rowObj);
+  }
+  return { mapped, allowedColumns };
+}
+
+async function runMappedDictionaryImport(dictKey, parsedMappedRows, allowedColumns) {
+  const def = DICTIONARIES[dictKey];
+  if (!def) {
+    const err = new Error('unknown_dictionary');
+    err.statusCode = 400;
+    throw err;
+  }
+  const tableMeta = await getTableMeta(dictKey);
+  const uniqueBy = IMPORT_CONFIG[dictKey]?.uniqueBy || [];
+  return upsertDictionaryRows(def, parsedMappedRows, allowedColumns, uniqueBy, tableMeta);
+}
+
 function parseJsonRows(fileBuffer, dictKey) {
   let data;
   try {
@@ -1045,14 +1084,7 @@ function registerDictionaryRoutes(app) {
           parsedRows = parseXlsxRows(req.file.buffer, xlsxFlagMap);
         }
 
-        const uniqueBy = IMPORT_CONFIG[dictKey]?.uniqueBy || [];
-        const stats = await upsertDictionaryRows(
-          def,
-          parsedRows,
-          allowedColumns,
-          uniqueBy,
-          tableMeta
-        );
+        const stats = await runMappedDictionaryImport(dictKey, parsedRows, allowedColumns);
 
         return res.json({
           ok: true,
@@ -1069,6 +1101,63 @@ function registerDictionaryRoutes(app) {
             status === 400
               ? 'Ошибка структуры файла или формата данных.'
               : 'Не удалось импортировать данные справочника.'
+        });
+      }
+    }
+  );
+
+  // Пакетный импорт (JSON строки уже как объекты; короткий ответ — обходит 504 у внешнего LB)
+  router.post(
+    '/api/dictionaries/:key/import-batch',
+    keycloakAuth.verifyToken(),
+    keycloakAuth.requireAnyRealmRole(['dictionary-admin', 'app-admin']),
+    async (req, res) => {
+      try {
+        const dictKey = req.params.key;
+        const def = DICTIONARIES[dictKey];
+        if (!def) {
+          return res.status(400).json({ error: 'unknown_dictionary' });
+        }
+        const body = req.body || {};
+        const rawRows = body.rows;
+        if (!Array.isArray(rawRows)) {
+          return res.status(400).json({
+            error: 'rows_required',
+            message: 'Тело запроса: { "rows": [ ... объектов строки таблицы ... ] }.'
+          });
+        }
+        if (rawRows.length > MAX_DICTIONARY_IMPORT_BATCH_ROWS) {
+          return res.status(413).json({
+            error: 'batch_too_large',
+            message: `В одном запросе не более ${MAX_DICTIONARY_IMPORT_BATCH_ROWS} строк; разобейте файл на части.`,
+            maxRows: MAX_DICTIONARY_IMPORT_BATCH_ROWS
+          });
+        }
+
+        const tableMeta = await getTableMeta(dictKey);
+        const { mapped, allowedColumns } = mapPayloadRowsUsingImportFlagMap(
+          dictKey,
+          def,
+          tableMeta,
+          rawRows
+        );
+        const stats = await runMappedDictionaryImport(dictKey, mapped, allowedColumns);
+
+        return res.json({
+          ok: true,
+          dictionary: dictKey,
+          batch: body.batchMeta || null,
+          stats
+        });
+      } catch (error) {
+        console.error('Error in dictionary import-batch:', error);
+        const status = error.statusCode || 500;
+        return res.status(status).json({
+          error: 'dictionary_import_batch_failed',
+          message:
+            status === 400
+              ? 'Ошибка структуры или формата данных.'
+              : 'Не удалось импортировать пакет справочника.'
         });
       }
     }

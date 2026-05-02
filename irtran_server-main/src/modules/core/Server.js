@@ -76,10 +76,18 @@ class Server {
       cert: fs.readFileSync(`/etc/letsencrypt/live/${this.server_name}/cert.pem`),
       key: fs.readFileSync(`/etc/letsencrypt/live/${this.server_name}/privkey.pem`)
     };
-    https.createServer(options, this.app).listen(this.port);
+      const httpsSrv = https.createServer(options, this.app);
+      httpsSrv.timeout = 920000;
+      httpsSrv.headersTimeout = 930000;
+      httpsSrv.keepAliveTimeout = 75000;
+      httpsSrv.listen(this.port);
       console.log(`HTTPS сервер прослушивается на порту {${this.port}}.`);
     } else {
-      http.createServer(this.app).listen(this.port);
+      const httpSrv = http.createServer(this.app);
+      httpSrv.timeout = 920000;
+      httpSrv.headersTimeout = 930000;
+      httpSrv.keepAliveTimeout = 75000;
+      httpSrv.listen(this.port);
       console.log(`HTTP сервер прослушивается на порту {${this.port}}.`);
     }
     //-------------------------------------------------------//

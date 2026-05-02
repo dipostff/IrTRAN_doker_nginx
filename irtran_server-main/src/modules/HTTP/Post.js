@@ -62,8 +62,10 @@ class Post {
    * 
    */
   PostBodyParser() {
+    const jsonLimitMb = parseInt(process.env.HTTP_JSON_BODY_LIMIT_MB, 10) || 50;
     this.app.use(bodyParser.urlencoded({ extended: true }));
-    this.app.use(bodyParser.json());
+    // Пакеты import-batch (справочники) и другие объёмные POST JSON
+    this.app.use(bodyParser.json({ limit: `${jsonLimitMb}mb` }));
   }
 
   /**

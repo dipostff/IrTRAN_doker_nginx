@@ -2,6 +2,13 @@
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import { getToken, updateToken } from '@/helpers/keycloak';
+import {
+  aggregateImportBatchStats,
+  chunkRows,
+  DICTIONARY_IMPORT_CHUNK_SIZE,
+  parseDictionaryJsonFromText,
+  parseDictionaryXlsxFile,
+} from '@/helpers/dictionaryImportClient';
 
 const activeSection = ref('intro'); // intro | update | delete | view
 const dictionaries = ref([]);
@@ -79,6 +86,35 @@ function onImportFileChange(event) {
   selectedImportFile.value = file || null;
 }
 
+async function postDictionaryBatch(key, rows, batchMeta = null) {
+  await updateToken(30).catch(() => {});
+  const { data } = await axios.post(
+    `${apiBase.value}/api/dictionaries/${key}/import-batch`,
+    { rows, ...(batchMeta ? { batchMeta } : {}) },
+    {
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      timeout: 0
+    }
+  );
+  return data?.stats;
+}
+
+async function importFromFileMultipartFallback(key, file) {
+  await updateToken(30).catch(() => {});
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await axios.post(`${apiBase.value}/api/dictionaries/${key}/import`, formData, {
+    headers: {
+      ...getAuthHeaders()
+    },
+    timeout: 0
+  });
+  return data?.stats;
+}
+
 async function importFromFile() {
   const key = selectedForUpdate.value;
   if (!key) return;
@@ -99,24 +135,63 @@ async function importFromFile() {
     error.value = '';
     importInfo.value = '';
     await updateToken(30).catch(() => {});
-    const formData = new FormData();
-    formData.append('file', selectedImportFile.value);
-    const { data } = await axios.post(
-      `${apiBase.value}/api/dictionaries/${key}/import`,
-      formData,
-      {
-        headers: {
-          ...getAuthHeaders()
-        },
-        timeout: 0
+
+    let rawRows = null;
+
+    try {
+      if (lower.endsWith('.xlsx')) {
+        rawRows = await parseDictionaryXlsxFile(selectedImportFile.value);
+      } else {
+        const text = await selectedImportFile.value.text();
+        rawRows = parseDictionaryJsonFromText(text, key);
       }
-    );
-    const stats = data?.stats || {};
-    importInfo.value = `Импорт завершён: всего ${stats.total || 0}, добавлено ${
-      stats.inserted || 0
-    }, обновлено ${stats.updated || 0}, пропущено ${stats.skipped || 0}.`;
-    await loadDictionary(key);
-    selectedImportFile.value = null;
+    } catch (parseErr) {
+      rawRows = null;
+    }
+
+    if (Array.isArray(rawRows) && rawRows.length > 0) {
+      const parts = chunkRows(rawRows, DICTIONARY_IMPORT_CHUNK_SIZE);
+      const totalRows = rawRows.length;
+      let aggregated = {
+        total: 0,
+        inserted: 0,
+        updated: 0,
+        skipped: 0
+      };
+
+      let rowsDoneVisually = 0;
+      importInfo.value = `Импорт пакетами по ${DICTIONARY_IMPORT_CHUNK_SIZE} строк (всего ${totalRows}). Ожидание…`;
+
+      for (let pi = 0; pi < parts.length; pi += 1) {
+        const slice = parts[pi];
+        const statsPart = await postDictionaryBatch(key, slice, {
+          index: pi + 1,
+          sliceCount: parts.length,
+          fileName,
+          declaredTotalRows: totalRows
+        });
+        aggregated = aggregateImportBatchStats(aggregated, statsPart);
+        rowsDoneVisually += slice.length;
+        importInfo.value = `Обработано примерно ${rowsDoneVisually} из ${totalRows} строк (запрос ${
+          pi + 1
+        }/${parts.length})…`;
+      }
+
+      importInfo.value = `Импорт завершён: строк в файле ${totalRows}; по пакетам — записей всего ${
+        aggregated.total || 0
+      }, добавлено ${aggregated.inserted || 0}, обновлено ${aggregated.updated || 0}, пропущено ${
+        aggregated.skipped || 0
+      }.`;
+      await loadDictionary(key);
+      selectedImportFile.value = null;
+    } else {
+      const stats = await importFromFileMultipartFallback(key, selectedImportFile.value);
+      importInfo.value = `Импорт завершён: всего ${stats?.total ?? 0}, добавлено ${
+        stats?.inserted ?? 0
+      }, обновлено ${stats?.updated ?? 0}, пропущено ${stats?.skipped ?? 0}.`;
+      await loadDictionary(key);
+      selectedImportFile.value = null;
+    }
   } catch (e) {
     console.error('Error importing dictionary file:', e);
     error.value =
