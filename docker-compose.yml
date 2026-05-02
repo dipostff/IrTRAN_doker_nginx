@@ -37,6 +37,9 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_HTTP_PORT: 8080
       KC_HTTP_RELATIVE_PATH: /auth
+      # Иначе :9000/health и часть проверок не поднимутся (см. keycloak.org observability)
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "false"
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-master}
     volumes:
       # Импорт реалма при старте: все *.json из keycloak-realm/ подхватываются Keycloak
@@ -48,16 +51,18 @@ services:
     networks:
       - app-network
     healthcheck:
-      # Управление :9000 (Quarkus health) и резерв через realm по :8080; Keycloak — до ~3 мин
+      # Если ключевой случай всё равно «unhealthy» (нет bash/curl/wget в образе), временно уберите
+      # этот блок и в backend/nginx верните keycloak: condition: service_started — см. docker-compose.override.
+      # В UBI-micro часто нет curl — цепочка заканчивается bash /dev/tcp :8080.
       test:
         [
           "CMD-SHELL",
-          "curl -sf http://127.0.0.1:9000/q/health/ready >/dev/null 2>&1 || curl -sf http://127.0.0.1:8080/auth/realms/master >/dev/null 2>&1"
+          "curl -sfL --max-time 6 http://127.0.0.1:9000/q/health/ready >/dev/null 2>&1 || curl -sfL --max-time 6 http://127.0.0.1:9000/health/ready >/dev/null 2>&1 || curl -sfL --max-time 6 http://127.0.0.1:8080/auth/ >/dev/null 2>&1 || wget -q --spider --timeout=6 http://127.0.0.1:8080/auth/ 2>/dev/null || bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"
         ]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 180s
+      interval: 15s
+      timeout: 10s
+      retries: 50
+      start_period: 600s
 
   postgres:
     image: postgres:15
