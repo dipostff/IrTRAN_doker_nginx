@@ -10,6 +10,7 @@ const OwnerNonPublicRailway = require('./OwnerNonPublicRailway');
 const ApprovalWithOwner = require('./ApprovalWithOwner');
 const CargoGroup = require('./CargoGroup');
 const MethodSubmission = require('./MethodSubmission');
+const Station = require('./Station');
 const Sending = require('./Sending');
 const SubmissionSchedule = require('./SubmissionSchedule');
 const Payer = require('./Payer');
@@ -80,6 +81,15 @@ const RequestTransportation = sequelize.define('RequestTransportation', {
   id_method_submission: {
     type: DataTypes.INTEGER.UNSIGNED
   },
+  id_station_departure: {
+    type: DataTypes.INTEGER.UNSIGNED
+  },
+  is_owner_approval: {
+    type: DataTypes.BOOLEAN
+  },
+  owner_approval_date: {
+    type: DataTypes.DATE
+  },
   is_form_3: {
     type: DataTypes.BOOLEAN
   },
@@ -140,6 +150,9 @@ const belongsTo = [{
   }, {
     model: MethodSubmission,
     foreignKey: 'id_method_submission'
+  }, {
+    model: Station,
+    foreignKey: 'id_station_departure'
   },
 ];
 

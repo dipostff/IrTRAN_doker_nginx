@@ -275,6 +275,10 @@ const IMPORT_CONFIG = {
       paragraph: ['paragraph', 'paragraphs', 'параграф', 'параграфы'],
       knot: ['knot', 'узел']
     }
+  },
+  payers: {
+    // Для плательщиков в импорте часто нет "name", но есть id_payer/OKPO.
+    uniqueBy: ['id_payer', 'OKPO', 'name']
   }
 };
 
@@ -477,8 +481,37 @@ function validateRowBySchema(row, tableMeta) {
         errors.push(`Поле "${col}" превышает ${maxLen} символов`);
       }
     }
+    const isNumericType =
+      sqlType.includes('int') ||
+      sqlType.includes('decimal') ||
+      sqlType.includes('float') ||
+      sqlType.includes('double');
+    if (isNumericType && (typeof value === 'string' || Number.isNaN(Number(value)))) {
+      errors.push(`Поле "${col}" должно быть числом`);
+    }
   });
   return { ok: errors.length === 0, errors };
+}
+
+function mapDictionaryWriteError(error, fallbackCode, fallbackMessage) {
+  const errno = error?.parent?.errno || error?.original?.errno || null;
+  if (errno === 1452) {
+    return {
+      status: 400,
+      body: {
+        error: 'foreign_key_violation',
+        message:
+          'Связанный справочник не содержит указанного значения (проверьте id_* поля).'
+      }
+    };
+  }
+  return {
+    status: 500,
+    body: {
+      error: fallbackCode,
+      message: fallbackMessage
+    }
+  };
 }
 
 function cellLookupKey(val) {
@@ -1351,10 +1384,12 @@ function registerDictionaryRoutes(app) {
         return res.status(201).json(rows[0] || { id: insertedId });
       } catch (error) {
         console.error('Error creating dictionary row:', error);
-        return res.status(500).json({
-          error: 'dictionary_create_failed',
-          message: 'Не удалось создать запись справочника.'
-        });
+        const mapped = mapDictionaryWriteError(
+          error,
+          'dictionary_create_failed',
+          'Не удалось создать запись справочника.'
+        );
+        return res.status(mapped.status).json(mapped.body);
       }
     }
   );
@@ -1429,10 +1464,12 @@ function registerDictionaryRoutes(app) {
         return res.json(rows[0] || { id });
       } catch (error) {
         console.error('Error updating dictionary row:', error);
-        return res.status(500).json({
-          error: 'dictionary_update_failed',
-          message: 'Не удалось обновить запись справочника.'
-        });
+        const mapped = mapDictionaryWriteError(
+          error,
+          'dictionary_update_failed',
+          'Не удалось обновить запись справочника.'
+        );
+        return res.status(mapped.status).json(mapped.body);
       }
     }
   );

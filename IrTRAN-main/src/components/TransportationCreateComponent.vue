@@ -171,6 +171,26 @@ const submissionSendNumberOptions = computed(() => {
     }));
 });
 
+function addDays(isoDate, shiftDays) {
+    const base = new Date(`${isoDate}T00:00:00`);
+    if (Number.isNaN(base.getTime())) return isoDate;
+    base.setDate(base.getDate() + shiftDays);
+    const y = base.getFullYear();
+    const m = String(base.getMonth() + 1).padStart(2, "0");
+    const d = String(base.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+}
+
+function getScheduleDateByIndex(index, fromDate, toDate) {
+    const from = new Date(`${fromDate}T00:00:00`);
+    const to = new Date(`${toDate}T00:00:00`);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return fromDate;
+    if (to < from) return fromDate;
+    const totalDays = Math.floor((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
+    const shift = Math.min(Math.max(0, index), totalDays);
+    return addDays(fromDate, shift);
+}
+
 const payerRows = computed(() => {
     const ids = Array.isArray(document.value?.Payers) ? document.value.Payers : [];
     return ids.map((id) => listsStore.payers?.[id]).filter(Boolean);
@@ -385,7 +405,6 @@ function closeModalSafely(modalId) {
         const forceCleanup = () => {
             modalEl.classList.remove("show", "in");
             modalEl.style.display = "none";
-            modalEl.setAttribute("aria-hidden", "true");
             modalEl.removeAttribute("aria-modal");
             dom.body.classList.remove("modal-open");
             dom.body.style.removeProperty("padding-right");
@@ -551,6 +570,69 @@ async function applySubmissionSchedule() {
 async function applySubmissionScheduleAndClose() {
     await applySubmissionSchedule();
     if (!saveError.value) closeModalSafely("staticGraficPodach");
+}
+
+async function calculateSubmissionSchedule() {
+    saveError.value = null;
+    const sendings = sendingRows.value || [];
+    if (!sendings.length) {
+        saveError.value = "Для расчёта графика подач добавьте хотя бы одну отправку.";
+        return;
+    }
+    const fromDate = document.value?.transportation_date_from;
+    const toDate = document.value?.transportation_date_to || fromDate;
+    if (!fromDate) {
+        saveError.value = "Не указан период перевозок: заполните дату начала.";
+        return;
+    }
+
+    try {
+        const existingSendNumbersByName = new Map(
+            Object.values(listsStore.send_numbers || {}).map((row) => [String(row.name || ""), Number(row.id)])
+        );
+        const nextIds = [];
+
+        for (let i = 0; i < sendings.length; i += 1) {
+            const sending = sendings[i];
+            const sendingId = Number(sending?.id);
+            if (!Number.isFinite(sendingId)) continue;
+            const sendNumberName = `Отправка №${sendingId}`;
+            let sendNumberId = existingSendNumbersByName.get(sendNumberName);
+            if (!sendNumberId) {
+                const createdSendNumber = await saveSendNumber({ name: sendNumberName });
+                if (!createdSendNumber || createdSendNumber.error || createdSendNumber.id == null) {
+                    saveError.value =
+                        createdSendNumber?.message || "Не удалось создать номер отправки для графика.";
+                    return;
+                }
+                sendNumberId = Number(createdSendNumber.id);
+                listsStore.send_numbers[sendNumberId] = createdSendNumber;
+                existingSendNumbersByName.set(sendNumberName, sendNumberId);
+            }
+
+            const payload = {
+                id_send_number: sendNumberId,
+                submission_date: getScheduleDateByIndex(i, fromDate, toDate),
+                weight: sending.weight !== "" ? Number(sending.weight) || null : null,
+                count_wagon: sending.count_wagon !== "" ? Number(sending.count_wagon) || null : null
+            };
+
+            const createdSchedule = await saveSubmissionSchedule(payload);
+            if (!createdSchedule || createdSchedule.error || createdSchedule.id == null) {
+                saveError.value = createdSchedule?.message || "Не удалось рассчитать график подач.";
+                return;
+            }
+            const scheduleId = Number(createdSchedule.id);
+            listsStore.submission_schedules[scheduleId] = createdSchedule;
+            nextIds.push(scheduleId);
+        }
+
+        document.value.SubmissionSchedules = nextIds;
+        selectedSubmissionScheduleIds.value = [];
+    } catch (e) {
+        console.error("calculateSubmissionSchedule error:", e);
+        saveError.value = "Не удалось рассчитать график подач.";
+    }
 }
 
 function startEditSubmissionSchedule() {
@@ -886,7 +968,7 @@ watch(
 
                 <div class="row mb-1">
                     <div class="col-auto">
-                        <button type="button" class="btn btn-custom">Рассчитать график подач</button>
+                        <button type="button" class="btn btn-custom" @click="calculateSubmissionSchedule">Рассчитать график подач</button>
                         <button type="button" class="btn btn-custom" @click="openSubmissionScheduleModalForCreate">Добавить</button>
                         <button type="button" class="btn btn-custom" @click="openSubmissionScheduleModalForEdit">Изменить</button>
                         <button type="button" class="btn btn-custom" @click="removeSelectedSubmissionSchedules">Удалить</button>

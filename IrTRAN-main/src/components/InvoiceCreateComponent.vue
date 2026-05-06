@@ -164,8 +164,25 @@ function ensureArray(name) {
     if (!Array.isArray(document.value[name])) document.value[name] = [];
 }
 
-function requireSingleSelection(selectedRef, sectionName) {
-    if (!Array.isArray(selectedRef.value) || selectedRef.value.length !== 1) {
+function readSelection(selectedLike) {
+    if (Array.isArray(selectedLike)) return selectedLike;
+    if (selectedLike && Array.isArray(selectedLike.value)) return selectedLike.value;
+    return [];
+}
+
+function clearSelection(selectedLike) {
+    if (Array.isArray(selectedLike)) {
+        selectedLike.splice(0, selectedLike.length);
+        return;
+    }
+    if (selectedLike && Array.isArray(selectedLike.value)) {
+        selectedLike.value = [];
+    }
+}
+
+function requireSingleSelection(selectedLike, sectionName) {
+    const selected = readSelection(selectedLike);
+    if (selected.length !== 1) {
         saveError.value = `Для изменения в секции "${sectionName}" выберите ровно одну строку.`;
         return false;
     }
@@ -175,21 +192,22 @@ function requireSingleSelection(selectedRef, sectionName) {
     return true;
 }
 
-function removeSelectedByIndexes(fieldName, selectedRef, sectionName) {
+function removeSelectedByIndexes(fieldName, selectedLike, sectionName) {
     ensureArray(fieldName);
-    const selected = new Set((selectedRef.value || []).map((x) => Number(x)));
+    const selected = new Set(readSelection(selectedLike).map((x) => Number(x)));
     if (selected.size === 0) {
         saveError.value = `Для удаления в секции "${sectionName}" выберите хотя бы одну строку.`;
         return;
     }
     document.value[fieldName] = document.value[fieldName].filter((_, idx) => !selected.has(idx));
-    selectedRef.value = [];
+    clearSelection(selectedLike);
     saveError.value = null;
 }
 
-async function startInlineEdit(selectedRef, sectionKey, sectionName) {
-    if (!requireSingleSelection(selectedRef, sectionName)) return;
-    const idx = Number(selectedRef.value[0]);
+async function startInlineEdit(selectedLike, sectionKey, sectionName) {
+    if (!requireSingleSelection(selectedLike, sectionName)) return;
+    const selected = readSelection(selectedLike);
+    const idx = Number(selected[0]);
     if (!Number.isFinite(idx)) return;
     editingSection.value = sectionKey;
     editingIndex.value = idx;

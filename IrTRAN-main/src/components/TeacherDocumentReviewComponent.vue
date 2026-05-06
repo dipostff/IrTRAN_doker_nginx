@@ -11,6 +11,13 @@ import {
   getDocumentReviewTemplates,
   saveDocumentReviewTemplate,
 } from "@/helpers/API";
+import DocumentLikeEditor from "@/components/document-review/DocumentLikeEditor.vue";
+import {
+  REVIEW_DOCUMENT_TYPE_OPTIONS,
+  REVIEW_DOCUMENT_TYPE_LABELS,
+  mergeTemplateDefaults,
+  deepClone,
+} from "@/config/documentReviewForms";
 
 const router = useRouter();
 const loading = ref(false);
@@ -42,7 +49,7 @@ const reviewForm = ref({
 const algorithmResult = ref(null);
 const templates = ref([]);
 const templateType = ref("");
-const templatePayloadText = ref("");
+const templatePayload = ref({});
 const templateMsg = ref("");
 const instructionExpanded = ref(true);
 const INSTRUCTION_STATE_KEY = "docReviewInstructionExpanded";
@@ -236,11 +243,6 @@ const combinedVerdict = computed(() => {
   };
 });
 
-const documentTypes = computed(() => {
-  const set = new Set((submissions.value || []).map((x) => x.document_type).filter(Boolean));
-  return Array.from(set);
-});
-
 async function loadSubmissions() {
   loading.value = true;
   error.value = "";
@@ -337,10 +339,10 @@ async function finalizeReview() {
 async function loadTemplates() {
   try {
     templates.value = await getDocumentReviewTemplates();
-    if (!templateType.value && templates.value.length) {
-      templateType.value = templates.value[0].document_type;
-      templatePayloadText.value = JSON.stringify(templates.value[0].payload || {}, null, 2);
+    if (!templateType.value) {
+      templateType.value = REVIEW_DOCUMENT_TYPE_OPTIONS[0]?.value || "";
     }
+    onTemplateTypeChange();
   } catch (e) {
     console.error(e);
   }
@@ -348,8 +350,14 @@ async function loadTemplates() {
 
 function onTemplateTypeChange() {
   templateMsg.value = "";
-  const found = (templates.value || []).find((t) => t.document_type === templateType.value);
-  templatePayloadText.value = JSON.stringify(found?.payload || {}, null, 2);
+  const found = (templates.value || []).find(
+    (t) => t.document_type === templateType.value
+  );
+  templatePayload.value = mergeTemplateDefaults(templateType.value, found?.payload || {});
+}
+
+function documentTypeLabel(type) {
+  return REVIEW_DOCUMENT_TYPE_LABELS[type] || type || "—";
 }
 
 async function saveTemplate() {
@@ -359,8 +367,7 @@ async function saveTemplate() {
       templateMsg.value = "Выберите тип документа.";
       return;
     }
-    const payload = JSON.parse(templatePayloadText.value || "{}");
-    await saveDocumentReviewTemplate(templateType.value, payload);
+    await saveDocumentReviewTemplate(templateType.value, deepClone(templatePayload.value));
     templateMsg.value = "Шаблон сохранен.";
     await loadTemplates();
   } catch (e) {
@@ -464,7 +471,7 @@ watch(instructionExpanded, (value) => {
                 <tbody>
                   <tr v-for="item in submissions" :key="item.id">
                     <td>{{ item.student_name || item.student_username || item.student_user_id }}</td>
-                    <td>{{ item.document_type }}</td>
+                    <td>{{ documentTypeLabel(item.document_type) }}</td>
                     <td>{{ item.version_no }}</td>
                     <td>{{ item.status === 'submitted' ? 'Отправлено' : 'Проверено' }}</td>
                     <td>
@@ -491,7 +498,7 @@ watch(instructionExpanded, (value) => {
             <div v-else-if="detailError" class="text-danger">{{ detailError }}</div>
             <div v-else-if="selected">
               <div class="mb-2 small text-muted">
-                Документ: {{ selected.document_type }} · версия {{ selected.version_no }} · статус:
+                Документ: {{ documentTypeLabel(selected.document_type) }} · версия {{ selected.version_no }} · статус:
                 <b>{{ selected.status }}</b>
               </div>
               <div class="mb-2">
@@ -647,12 +654,20 @@ watch(instructionExpanded, (value) => {
                 <label class="form-label">Тип документа</label>
                 <select v-model="templateType" class="form-select" @change="onTemplateTypeChange">
                   <option value="">— выбрать —</option>
-                  <option v-for="dt in documentTypes" :key="dt" :value="dt">{{ dt }}</option>
+                  <option v-for="dt in REVIEW_DOCUMENT_TYPE_OPTIONS" :key="dt.value" :value="dt.value">
+                    {{ dt.label }}
+                  </option>
                 </select>
               </div>
             </div>
-            <label class="form-label mt-2">Payload эталона (JSON)</label>
-            <textarea v-model="templatePayloadText" class="form-control" rows="8" />
+            <DocumentLikeEditor
+              v-if="templateType"
+              class="mt-3"
+              :document-type="templateType"
+              :model-value="templatePayload"
+              :editable="true"
+              @update:model-value="(next) => (templatePayload = next)"
+            />
             <div class="mt-2 d-flex gap-2 align-items-center">
               <button type="button" class="btn btn-sm btn-outline-primary" @click="saveTemplate">Сохранить шаблон</button>
               <span class="small text-muted">{{ templateMsg }}</span>

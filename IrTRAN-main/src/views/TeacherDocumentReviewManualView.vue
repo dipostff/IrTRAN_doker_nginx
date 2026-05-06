@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useListsStore } from "@/stores/main";
 import HeaderComponent from "../components/HeaderComponent.vue";
+import DocumentLikeEditor from "@/components/document-review/DocumentLikeEditor.vue";
 import {
   getTeacherDocumentReviewSubmission,
   getStations,
@@ -15,6 +16,9 @@ import {
   getSendNumbers,
 } from "@/helpers/API";
 import { updateTitle } from "@/helpers/headerHelper";
+import {
+  REVIEW_DOCUMENT_TYPE_LABELS,
+} from "@/config/documentReviewForms";
 
 const route = useRoute();
 const router = useRouter();
@@ -26,9 +30,16 @@ const submission = ref(null);
 
 const payload = computed(() => submission.value?.payload_snapshot || {});
 const documentType = computed(() => submission.value?.document_type || "");
+const documentTypeLabel = computed(
+  () => REVIEW_DOCUMENT_TYPE_LABELS[documentType.value] || documentType.value || "—"
+);
 const isTransportation = computed(() => documentType.value === "transportation_request");
 const isReminder = computed(() => documentType.value === "reminder");
 const isCommonAct = computed(() => documentType.value === "common_act");
+const isInvoice = computed(() => documentType.value === "invoice");
+const isCommercialAct = computed(() => documentType.value === "commercial_act");
+const isFillingStatement = computed(() => documentType.value === "filling_statement");
+const isCumulativeStatement = computed(() => documentType.value === "cumulative_statement");
 
 const transportationFieldLabels = {
   registration_date: "Дата регистрации",
@@ -200,9 +211,18 @@ const commonActCompleteness = computed(() => {
 const isSigned = computed(() => !!payload.value?.signed);
 const copyMessage = ref("");
 
-const payloadRows = computed(() => {
+const scalarSummaryRows = computed(() => {
   if (!payload.value || typeof payload.value !== "object") return [];
-  return Object.entries(payload.value).sort(([a], [b]) => String(a).localeCompare(String(b), "ru"));
+  return Object.entries(payload.value)
+    .filter(([, v]) => !Array.isArray(v) && (v == null || typeof v !== "object"))
+    .sort(([a], [b]) => String(a).localeCompare(String(b), "ru"));
+});
+
+const collectionSummaryRows = computed(() => {
+  if (!payload.value || typeof payload.value !== "object") return [];
+  return Object.entries(payload.value)
+    .filter(([, v]) => Array.isArray(v))
+    .map(([k, v]) => [k, Array.isArray(v) ? v.length : 0]);
 });
 
 function formatValue(value) {
@@ -210,11 +230,8 @@ function formatValue(value) {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (_) {
-    return String(value);
-  }
+  if (Array.isArray(value)) return `Строк: ${value.length}`;
+  return "Структурированный объект";
 }
 
 function formatDate(value) {
@@ -389,7 +406,7 @@ onMounted(async () => {
       <div class="card-header">
         <div class="fw-semibold">Документ для ручной проверки</div>
         <div class="small mt-1">
-          Тип: <b>{{ submission.document_type }}</b> · Версия: <b>{{ submission.version_no }}</b> · Статус:
+          Тип: <b>{{ documentTypeLabel }}</b> · Версия: <b>{{ submission.version_no }}</b> · Статус:
           <b>{{ submission.status === "submitted" ? "Отправлено" : "Проверено" }}</b>
         </div>
         <div class="mt-2 d-flex flex-wrap gap-2">
@@ -418,7 +435,7 @@ onMounted(async () => {
       </div>
       <div class="card-body">
         <div class="alert alert-light border py-2 small">
-          Это readonly-представление отправленного снапшота документа. Здесь нельзя ничего изменить, только проверить данные перед выставлением результата.
+          Это визуальное readonly-представление документа для проверки. Интерфейс повторяет форму документа, изменения недоступны.
         </div>
         <div class="mb-2">
           <button type="button" class="btn btn-sm btn-outline-primary" @click="copyTeacherRemark">
@@ -430,7 +447,14 @@ onMounted(async () => {
           <span v-if="copyMessage" class="small text-muted ms-2">{{ copyMessage }}</span>
         </div>
 
-        <div v-if="isTransportation" class="mb-3">
+        <DocumentLikeEditor
+          :document-type="documentType"
+          :model-value="payload"
+          :editable="false"
+          class="mb-3"
+        />
+
+        <div v-if="false && isTransportation" class="mb-3">
           <h6 class="mb-2">Заявка на грузоперевозку (форма проверки)</h6>
 
           <div class="section-title">Раздел: Документ</div>
@@ -537,7 +561,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div v-if="isReminder" class="mb-3">
+        <div v-if="false && isReminder" class="mb-3">
           <h6 class="mb-2">Памятка приемосдатчика (форма проверки)</h6>
           <div class="row g-2 mb-2 small">
             <div class="col-md-4"><b>Тип памятки:</b> {{ formatValue(payload.reminder_type) }}</div>
@@ -571,7 +595,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div v-if="isCommonAct" class="mb-3">
+        <div v-if="false && isCommonAct" class="mb-3">
           <h6 class="mb-2">Акт общей формы (форма проверки)</h6>
           <div class="row g-2 mb-2 small">
             <div class="col-md-4"><b>Дата акта:</b> {{ formatDate(payload.act_date) }}</div>
@@ -624,23 +648,124 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="table-responsive">
+        <div v-if="false && isInvoice" class="mb-3">
+          <h6 class="mb-2">Накладная (форма проверки)</h6>
+          <div class="row g-2 mb-2 small">
+            <div class="col-md-4"><b>Тип накладной:</b> {{ formatValue(payload.invoice_type) }}</div>
+            <div class="col-md-4"><b>Станция отправления (id):</b> {{ formatValue(payload.id_station_departure) }}</div>
+            <div class="col-md-4"><b>Станция назначения (id):</b> {{ formatValue(payload.id_station_destination) }}</div>
+          </div>
+          <div class="table-responsive mb-2">
+            <table class="table table-sm table-bordered">
+              <thead>
+                <tr>
+                  <th>Секция</th>
+                  <th>Количество строк</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Грузы</td><td>{{ Array.isArray(payload.goods) ? payload.goods.length : 0 }}</td></tr>
+                <tr><td>Маршрут</td><td>{{ Array.isArray(payload.route_rows) ? payload.route_rows.length : 0 }}</td></tr>
+                <tr><td>Спец. отметки</td><td>{{ Array.isArray(payload.special_marks) ? payload.special_marks.length : 0 }}</td></tr>
+                <tr><td>Документы</td><td>{{ Array.isArray(payload.attached_documents) ? payload.attached_documents.length : 0 }}</td></tr>
+                <tr><td>Контейнеры</td><td>{{ Array.isArray(payload.containers) ? payload.containers.length : 0 }}</td></tr>
+                <tr><td>Вагоны</td><td>{{ Array.isArray(payload.wagons) ? payload.wagons.length : 0 }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="false && isCommercialAct" class="mb-3">
+          <h6 class="mb-2">Коммерческий акт (форма проверки)</h6>
+          <div class="row g-2 mb-2 small">
+            <div class="col-md-4"><b>Поезд №:</b> {{ formatValue(payload.train_number) }}</div>
+            <div class="col-md-4"><b>Дата прибытия:</b> {{ formatDate(payload.arrival_date) }}</div>
+            <div class="col-md-4"><b>Станция (id):</b> {{ formatValue(payload.id_station) }}</div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+              <thead><tr><th>Секция</th><th>Количество строк</th></tr></thead>
+              <tbody>
+                <tr><td>Вагоны</td><td>{{ Array.isArray(payload.wagons) ? payload.wagons.length : 0 }}</td></tr>
+                <tr><td>Контейнеры</td><td>{{ Array.isArray(payload.containers) ? payload.containers.length : 0 }}</td></tr>
+                <tr><td>ЗПУ</td><td>{{ Array.isArray(payload.zpu_rows) ? payload.zpu_rows.length : 0 }}</td></tr>
+                <tr><td>Документы по грузу</td><td>{{ Array.isArray(payload.cargo_docs) ? payload.cargo_docs.length : 0 }}</td></tr>
+                <tr><td>Факт по грузу</td><td>{{ Array.isArray(payload.cargo_actual_rows) ? payload.cargo_actual_rows.length : 0 }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="false && isFillingStatement" class="mb-3">
+          <h6 class="mb-2">Ведомость подачи и уборки (форма проверки)</h6>
+          <div class="row g-2 mb-2 small">
+            <div class="col-md-4"><b>Станция (id):</b> {{ formatValue(payload.id_station) }}</div>
+            <div class="col-md-4"><b>Период с:</b> {{ formatDate(payload.period_from) }}</div>
+            <div class="col-md-4"><b>Период по:</b> {{ formatDate(payload.period_to) }}</div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+              <thead><tr><th>Секция</th><th>Количество строк</th></tr></thead>
+              <tbody>
+                <tr><td>Памятки уборки</td><td>{{ Array.isArray(payload.cleaning_reminders) ? payload.cleaning_reminders.length : 0 }}</td></tr>
+                <tr><td>Вагоны по памяткам</td><td>{{ Array.isArray(payload.wagons_by_reminders) ? payload.wagons_by_reminders.length : 0 }}</td></tr>
+                <tr><td>Начисления</td><td>{{ Array.isArray(payload.fee_delivery_rows) ? payload.fee_delivery_rows.length : 0 }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="false && isCumulativeStatement" class="mb-3">
+          <h6 class="mb-2">Накопительная ведомость (форма проверки)</h6>
+          <div class="row g-2 mb-2 small">
+            <div class="col-md-4"><b>Номер:</b> {{ formatValue(payload.document_number) }}</div>
+            <div class="col-md-4"><b>Период с:</b> {{ formatDate(payload.period_from) }}</div>
+            <div class="col-md-4"><b>Период по:</b> {{ formatDate(payload.period_to) }}</div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+              <thead><tr><th>Секция</th><th>Количество строк</th></tr></thead>
+              <tbody>
+                <tr><td>Строки начислений</td><td>{{ Array.isArray(payload.fee_rows) ? payload.fee_rows.length : 0 }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="false" class="table-responsive">
           <table class="table table-sm table-bordered">
             <thead>
               <tr>
-                <th style="width: 280px;">Поле</th>
+                <th style="width: 320px;">Сводка (скалярные поля)</th>
                 <th>Значение</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="([key, value]) in payloadRows" :key="key">
+              <tr v-for="([key, value]) in scalarSummaryRows" :key="key">
                 <td class="field-key">{{ key }}</td>
-                <td>
-                  <pre class="value-pre mb-0">{{ formatValue(value) }}</pre>
-                </td>
+                <td>{{ formatValue(value) }}</td>
               </tr>
-              <tr v-if="!payloadRows.length">
+              <tr v-if="!scalarSummaryRows.length">
                 <td colspan="2" class="text-muted">В отправке нет данных payload_snapshot.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="false" class="table-responsive mt-2">
+          <table class="table table-sm table-bordered">
+            <thead>
+              <tr>
+                <th style="width: 320px;">Табличная секция</th>
+                <th>Количество строк</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="([key, cnt]) in collectionSummaryRows" :key="`arr-${key}`">
+                <td class="field-key">{{ key }}</td>
+                <td>{{ cnt }}</td>
+              </tr>
+              <tr v-if="!collectionSummaryRows.length">
+                <td colspan="2" class="text-muted">Табличные секции отсутствуют.</td>
               </tr>
             </tbody>
           </table>
