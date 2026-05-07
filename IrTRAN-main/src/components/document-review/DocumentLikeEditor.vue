@@ -101,6 +101,10 @@ function headerText(field) {
   return field.header || field.label || "";
 }
 
+function arrayValueHeader(arrSchema) {
+  return arrSchema?.valueHeader || arrSchema?.label || "Значение";
+}
+
 const REFERENCE_DEFS = {
   message_types: { storeKey: "message_types", load: getMessageTypes },
   signs_sending: { storeKey: "signs_sending", load: getSignsSending },
@@ -188,16 +192,13 @@ function recordLabel(record, refKey, fallbackValue) {
 
   const def = REFERENCE_DEFS[refKey] || {};
   const keys = def.labelKeys || DEFAULT_LABEL_KEYS;
-  const idPart = record.id != null && record.id !== "" ? String(record.id) : "";
   for (const key of keys) {
     const value = record[key];
     if (value != null && String(value).trim() !== "") {
-      const textPart = String(value).trim();
-      if (!idPart || textPart === idPart) return textPart;
-      return `${idPart} — ${textPart}`;
+      return String(value).trim();
     }
   }
-  return idPart || String(fallbackValue ?? "—");
+  return String(record.id ?? fallbackValue ?? "—");
 }
 
 function pickText(record, keys) {
@@ -254,19 +255,19 @@ function formatRecordLabel(refKey, record) {
 
   if (refKey === "send_numbers") {
     const name = pickText(record, ["name", "number"]);
-    if (name && idText) return `${idText} — ${name}`;
+    if (name) return name;
     return name || "";
   }
 
   if (refKey === "sendings") {
     const number = pickText(record, ["number", "name"]);
-    if (number && idText) return `${idText} — ${number}`;
+    if (number) return number;
     return number || "";
   }
 
   if (refKey === "submission_schedules") {
     const name = pickText(record, ["name", "id_send_number"]);
-    if (name && idText) return `${idText} — ${name}`;
+    if (name) return name;
     return name || "";
   }
 
@@ -276,7 +277,7 @@ function formatRecordLabel(refKey, record) {
 function displayReferenceValue(refKey, value) {
   if (value == null || value === "") return "—";
   const record = refRecordMap(refKey)[value];
-  if (!record) return displayValue(value);
+  if (!record) return "—";
   return recordLabel(record, refKey, value);
 }
 
@@ -530,7 +531,9 @@ watch(
               <thead>
                 <tr>
                   <th style="width: 60px" class="doc-header">{{ arr.indexLabel || "№" }}</th>
-                  <th v-if="arr.itemType === 'number'" class="doc-header">ID</th>
+                  <th v-if="arr.itemType === 'number'" class="doc-header">
+                    {{ arrayValueHeader(arr) }}
+                  </th>
                   <th
                     v-else
                     v-for="f in arr.fields || []"

@@ -129,19 +129,37 @@ export const REVIEW_TEMPLATE_FORM_SCHEMAS = {
       {
         title: "Отправки",
         arrays: [
-          { key: "Sendings", label: "Отправки", itemType: "number", indexLabel: "№" },
+          {
+            key: "Sendings",
+            label: "Отправки",
+            itemType: "number",
+            indexLabel: "№",
+            valueHeader: "Отправка",
+          },
         ],
       },
       {
         title: "График подач",
         arrays: [
-          { key: "SubmissionSchedules", label: "График подач", itemType: "number", indexLabel: "№" },
+          {
+            key: "SubmissionSchedules",
+            label: "График подач",
+            itemType: "number",
+            indexLabel: "№",
+            valueHeader: "График подачи",
+          },
         ],
       },
       {
         title: "Плательщики/Экспедиторы",
         arrays: [
-          { key: "Payers", label: "Плательщики/Экспедиторы", itemType: "number", indexLabel: "№" },
+          {
+            key: "Payers",
+            label: "Плательщики/Экспедиторы",
+            itemType: "number",
+            indexLabel: "№",
+            valueHeader: "Плательщик/Экспедитор",
+          },
         ],
       },
     ],
