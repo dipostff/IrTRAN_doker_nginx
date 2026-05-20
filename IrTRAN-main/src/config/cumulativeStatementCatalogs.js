@@ -2,6 +2,8 @@ export const CUMULATIVE_SOURCE_DOCUMENTS = [
     { id: "invoice", name: "Накладная" },
     { id: "filling_statement", name: "Ведомость подачи и уборки" },
     { id: "reminder", name: "Памятка приемосдатчика" },
+    { id: "common_act", name: "Акт общей формы (ГУ-23)" },
+    { id: "commercial_act", name: "Коммерческий акт (ГУ-22)" },
     { id: "manual", name: "Ручной ввод" },
 ];
 

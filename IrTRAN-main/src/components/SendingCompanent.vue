@@ -2,6 +2,9 @@
 import { useMainStore, useListsStore } from "@/stores/main";
 import { Sending } from "@/models/sending";
 import { saveSending, getCargoConstraints } from "@/helpers/API";
+import { COUNTRY_SELECT_FIELDS } from "@/config/formFieldLabels";
+import { cargoBelongsToGroup, filterCargosByGroup } from "@/helpers/cargoGroupFilter";
+import { updateSubtitleModal } from "@/helpers/headerHelper";
 export default {
     props: {
         object: {
@@ -23,6 +26,7 @@ export default {
             mainStore: {},
             sending: {},
             selectedDestinationIndicationId: null,
+            countrySelectFields: COUNTRY_SELECT_FIELDS,
             cargoConstraints: {
                 hasCargoRestrictions: false,
                 cargoIds: []
@@ -102,6 +106,18 @@ export default {
             }
         },
         async saveDocument() {
+            const groupId = this.object?.id_cargo_group;
+            if (!groupId) {
+                updateSubtitleModal("Сначала выберите группу груза в заявке");
+                return;
+            }
+            const group = this.listsStore.cargo_groups?.[groupId];
+            const cargo = this.listsStore.cargos?.[this.sending?.id_cargo];
+            if (!cargoBelongsToGroup(cargo, group)) {
+                updateSubtitleModal("Груз не относится к выбранной группе груза (проверьте код ЕТСНГ и номер группы)");
+                return;
+            }
+
             const saveDoc = await saveSending(this.sending);
             if (!saveDoc || saveDoc.error || saveDoc.id == null) {
                 console.error("Не удалось сохранить отправку", saveDoc);
@@ -122,16 +138,36 @@ export default {
         },
         filteredCargos() {
             const cargos = this.listsStore?.cargos || {};
-            if (!this.cargoConstraints?.hasCargoRestrictions) return cargos;
-            const allowed = new Set((this.cargoConstraints.cargoIds || []).map((x) => Number(x)));
-            const out = {};
-            for (const [id, item] of Object.entries(cargos)) {
-                if (allowed.has(Number(id))) out[id] = item;
-            }
-            return out;
-        }
+            const groupId = this.object?.id_cargo_group ?? null;
+            const allowedIds = this.cargoConstraints?.hasCargoRestrictions
+                ? this.cargoConstraints.cargoIds || []
+                : null;
+
+            return filterCargosByGroup(cargos, {
+                cargoGroupId: groupId,
+                cargoGroups: this.listsStore?.cargo_groups || {},
+                allowedCargoIds: allowedIds,
+                requireGroup: true,
+            });
+        },
+        cargoGroupName() {
+            const id = this.object?.id_cargo_group;
+            if (!id) return null;
+            return this.listsStore.cargo_groups?.[id]?.name ?? null;
+        },
     },
     watch: {
+        "object.id_cargo_group": {
+            handler(newGroupId, oldGroupId) {
+                if (newGroupId === oldGroupId) return;
+                if (this.sending?.id_cargo == null) return;
+                const group = this.listsStore.cargo_groups?.[newGroupId];
+                const cargo = this.listsStore.cargos?.[this.sending.id_cargo];
+                if (!cargoBelongsToGroup(cargo, group)) {
+                    this.sending.id_cargo = null;
+                }
+            },
+        },
         watchedComputed: {
             deep: true,
             handler(newVal, oldVal) {
@@ -183,7 +219,23 @@ export default {
                     </div>
 
                     <div class="row mb-1">
-                        <select-with-search title="Груз" :req="true" :values="filteredCargos" valueKey="id" name="name" v-model="sending.id_cargo" modalName="SendingCargo" :fixWidth="false" :fields="{ 'Код груза ЕТСНГ': 'code_ETSNG', 'Наименование груза': 'name', 'Краткое наименование': 'short_name', 'Номер группы груза': 'number_group' }" />
+                        <p v-if="!object?.id_cargo_group" class="col-12 text-danger mb-1 small">
+                            Сначала укажите группу груза в заявке — список грузов ЕТСНГ будет отфильтрован по её коду.
+                        </p>
+                        <p v-else-if="!Object.keys(filteredCargos).length" class="col-12 text-warning mb-1 small">
+                            Для группы «{{ cargoGroupName }}» нет грузов в справочнике (проверьте поле «Номер группы груза» у каждого груза ЕТСНГ).
+                        </p>
+                        <select-with-search
+                            title="Груз"
+                            :req="true"
+                            :values="filteredCargos"
+                            valueKey="id"
+                            name="name"
+                            v-model="sending.id_cargo"
+                            modalName="SendingCargo"
+                            :fixWidth="false"
+                            :fields="{ 'Код груза ЕТСНГ': 'code_ETSNG', 'Наименование груза': 'name', 'Краткое наименование': 'short_name', 'Номер группы груза': 'number_group' }"
+                        />
                         <disable-simple-input title="Код груза" :dis="true" :value="listsStore.cargos[sending.id_cargo]?.code_ETSNG" :fixWidth="false" styleInput="width: 120px" />
                     </div>
 
@@ -222,7 +274,7 @@ export default {
                     </div>
 
                     <div class="row mb-1">
-                        <select-with-search title="Страна назначения" :req="true" :values="listsStore.countries" valueKey="id" name="name" v-model="sending.id_country_destination" modalName="SendingCountryDestination" :fixWidth="false" :fields="{ 'Код ОСКМ': 'OSCM_code', 'Наименование страны': 'name', ОКПО: 'OKPO', 'Краткое наименование': 'short_name' }" />
+                        <select-with-search title="Страна назначения" :req="true" :values="listsStore.countries" valueKey="id" name="name" v-model="sending.id_country_destination" modalName="SendingCountryDestination" :fixWidth="false" :fields="countrySelectFields" />
                     </div>
 
                     <div class="row mb-1">

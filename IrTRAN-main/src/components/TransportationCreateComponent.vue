@@ -16,6 +16,8 @@ import { useListsStore } from "@/stores/main";
 import { useTrainingSimulatorContext } from "@/composables/useTrainingSimulatorContext";
 import SendingCompanent from "@/components/SendingCompanent.vue";
 import TrainingScenarioPanel from "@/components/training/TrainingScenarioPanel.vue";
+import { COUNTRY_SELECT_FIELDS } from "@/config/formFieldLabels";
+import { cargoBelongsToGroup } from "@/helpers/cargoGroupFilter";
 
 const listsStore = useListsStore();
 const { trainingContext } = useTrainingSimulatorContext();
@@ -315,7 +317,14 @@ function updateSending(sendingValue) {
     selectedSendingIds.value = [];
 }
 
-function startCreateSending() {
+function startCreateSending(event) {
+    if (!document.value?.id_cargo_group) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        saveError.value = "Перед добавлением отправки выберите группу груза в заявке.";
+        return;
+    }
+    saveError.value = null;
     activeSendingId.value = null;
     sendingResetNonce.value += 1;
 }
@@ -698,6 +707,24 @@ onMounted(async () => {
 });
 
 watch(
+  () => document.value?.id_cargo_group,
+  (newGroupId, oldGroupId) => {
+    if (newGroupId === oldGroupId) return;
+    const group = listsStore.cargo_groups?.[newGroupId];
+    const sendingIds = document.value?.Sendings;
+    if (!Array.isArray(sendingIds)) return;
+    for (const sid of sendingIds) {
+      const sending = listsStore.sendings?.[sid];
+      if (!sending?.id_cargo) continue;
+      const cargo = listsStore.cargos?.[sending.id_cargo];
+      if (!cargoBelongsToGroup(cargo, group)) {
+        sending.id_cargo = null;
+      }
+    }
+  }
+);
+
+watch(
   () => document.value?.id_station_departure,
   async (newStationId) => {
     try {
@@ -814,7 +841,7 @@ watch(
                 </div>
 
                 <div class="row mb-1">
-                    <select-with-search title="Страна отправления" :values="listsStore.countries" valueKey="id" name="name" v-model="document.id_country_departure" :req="true" modalName="CountryDeparture" :fields="{ 'Код ОСКМ': 'OSCM_code', 'Наименование страны': 'name', 'Краткое наименование': 'short_name' }" />
+                    <select-with-search title="Страна отправления" :values="listsStore.countries" valueKey="id" name="name" v-model="document.id_country_departure" :req="true" modalName="CountryDeparture" :fields="COUNTRY_SELECT_FIELDS" />
                 </div>
 
                 <div class="row mb-1">
@@ -892,7 +919,7 @@ watch(
 
                 <div class="row mb-1">
                     <div class="col-auto">
-                        <simple-button data-toggle="modal" data-target="#DobavitOtpravka" title="Добавить" @click="startCreateSending"/>
+                        <simple-button data-toggle="modal" data-target="#DobavitOtpravka" title="Добавить" @click="startCreateSending($event)"/>
                         <simple-button data-toggle="modal" data-target="#DobavitOtpravka" title="Изменить" @click="startEditSending"/>
                         <simple-button title="Удалить" @click="removeSelectedSendings"/>
                         <simple-button title="Копировать"/>
@@ -1157,7 +1184,7 @@ watch(
                                             v-model="document.id_country_departure_point"
                                             :req="false"
                                             modalName="CountryPay"
-                                            :fields="{ 'Код ОСКМ': 'OSCM_code', 'Наименование страны': 'name', 'Краткое наименование': 'short_name' }"
+                                            :fields="COUNTRY_SELECT_FIELDS"
                                         />
                                     </div>
                                 </div>

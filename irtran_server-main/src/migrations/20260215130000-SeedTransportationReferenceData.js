@@ -22,8 +22,8 @@ module.exports = {
       await queryInterface.bulkInsert('message_types', [
         { id: 1, name: 'Прямое', code: 1, created_at: now, updated_at: now },
         { id: 2, name: 'Местное', code: 2, created_at: now, updated_at: now },
-        { id: 3, name: 'Прямое смешанное', code: 3, created_at: now, updated_at: now },
-        { id: 4, name: 'Местное смешанное', code: 4, created_at: now, updated_at: now },
+        { id: 3, name: 'Смешанное', code: 3, created_at: now, updated_at: now },
+        { id: 4, name: 'Экспорт', code: 4, created_at: now, updated_at: now },
       ]);
     }
 

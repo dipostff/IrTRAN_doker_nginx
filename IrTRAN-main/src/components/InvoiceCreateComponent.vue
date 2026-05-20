@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, nextTick } from "vue";
+import { ref, computed, onMounted, nextTick, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useListsStore } from "@/stores/main";
 import { useTrainingSimulatorContext } from "@/composables/useTrainingSimulatorContext";
@@ -22,6 +22,7 @@ import {
     updateStudentDocument,
 } from "@/helpers/API";
 import { getToken } from "@/helpers/keycloak";
+import { COUNTRY_CLASSIFIER_LABEL, COUNTRY_SELECT_FIELDS } from "@/config/formFieldLabels";
 
 const route = useRoute();
 const router = useRouter();
@@ -41,6 +42,8 @@ const selectedConductors = ref([]);
 const selectedWagonMarks = ref([]);
 const editingSection = ref(null);
 const editingIndex = ref(null);
+const goodsDraft = ref(null);
+const goodsModalIndex = ref(-1);
 
 function getDefaultDocument() {
     return {
@@ -58,6 +61,9 @@ function getDefaultDocument() {
         destination_railway_path: "",
         id_speed_type: null,
         id_place_of_payment: null,
+        place_of_payment: "ЦФТО",
+        wagon_loading_by: null,
+        performed_by: null,
         id_request_transportation: null,
         id_submission_schedule: null,
         cargo_work_type: null,
@@ -101,8 +107,20 @@ const invoiceTypeOptions = [
 
 // Типы бланка — статичный справочник (при появлении API можно заменить на listsStore)
 const blankTypeOptions = [
-    { id: 1, name: "Грузовая накладная (форма ГУ-1)", code: "ГУ-1" },
+    { id: 1, name: "Грузовая накладная (форма ГУ-27)", code: "ГУ-27" },
     { id: 2, name: "Дополнение к перевозочным документам", code: "ГУ-1д" },
+];
+
+const placeOfPaymentOptions = [{ id: "ЦФТО", name: "ЦФТО" }];
+
+const wagonLoadingByOptions = [
+    { id: "Грузоотправителя", name: "Грузоотправителя" },
+    { id: "Перевозчика", name: "Перевозчика" },
+];
+
+const performedByOptions = [
+    { id: "Грузоотправителем", name: "Грузоотправителем" },
+    { id: "Погрузчиком", name: "Погрузчиком" },
 ];
 
 const cargoWorkTypeOptions = [
@@ -251,9 +269,8 @@ function addAttachedDoc() {
 }
 function removeAttachedDoc() { document.value.attached_documents.pop(); }
 
-function addGoodsRow() {
-    ensureArray("goods");
-    document.value.goods.push({
+function emptyGoodsRow() {
+    return {
         id_cargo: null,
         package: "",
         places: "",
@@ -261,8 +278,42 @@ function addGoodsRow() {
         planned_weight_kg: "",
         gng_name: "",
         gng_code: "",
-        danger: ""
-    });
+        danger: "",
+    };
+}
+
+function syncGoodFromCargo(good) {
+    if (!good?.id_cargo) return;
+    const cargo = listsStore.cargos?.[good.id_cargo];
+    if (!cargo) return;
+    good.gng_code = cargo.code_ETSNG ?? good.gng_code ?? "";
+    good.gng_name = cargo.name ?? good.gng_name ?? "";
+}
+
+function openGoodsModal(index = -1) {
+    goodsModalIndex.value = index;
+    if (index >= 0 && goodsRows.value[index]) {
+        goodsDraft.value = { ...emptyGoodsRow(), ...goodsRows.value[index] };
+    } else {
+        goodsDraft.value = emptyGoodsRow();
+    }
+}
+
+function applyGoodsModal() {
+    if (!goodsDraft.value) return;
+    syncGoodFromCargo(goodsDraft.value);
+    ensureArray("goods");
+    if (goodsModalIndex.value >= 0) {
+        document.value.goods[goodsModalIndex.value] = { ...goodsDraft.value };
+    } else {
+        document.value.goods.push({ ...goodsDraft.value });
+    }
+    goodsDraft.value = null;
+    goodsModalIndex.value = -1;
+}
+
+function addGoodsRow() {
+    openGoodsModal(-1);
 }
 function removeGoodsRow() { document.value.goods.pop(); }
 
@@ -425,10 +476,21 @@ function loadDocumentById(id) {
     const list = getStoredList();
     const found = list.find((d) => d.id === id);
     if (found) {
-        document.value = { ...getDefaultDocument(), ...found };
+        document.value = {
+            ...getDefaultDocument(),
+            ...found,
+            place_of_payment: found.place_of_payment || "ЦФТО",
+        };
         updateTitle("Накладная № " + id);
     }
 }
+
+watch(
+    () => goodsDraft.value?.id_cargo,
+    () => {
+        if (goodsDraft.value) syncGoodFromCargo(goodsDraft.value);
+    }
+);
 
 onMounted(async () => {
     await loadLists();
@@ -711,8 +773,8 @@ onMounted(async () => {
                 <!----------------------------- -->
 
                 <div class="row mb-1">
-                    <select-with-search title="Страна отправления" :values="listsStore.countries" valueKey="id" name="name" v-model="document.id_country_departure" modalName="InvoiceCountryDeparture" :fields="{ 'Код ОСКМ': 'OSCM_code', 'Наименование': 'name', 'Краткое': 'short_name' }" />
-                    <disable-simple-input title="Код" :dis="true" :value="listsStore.countries[document.id_country_departure]?.OSCM_code ?? ''" :fixWidth="false" styleInput="width: 100px" />
+                    <select-with-search title="Страна отправления" :values="listsStore.countries" valueKey="id" name="name" v-model="document.id_country_departure" modalName="InvoiceCountryDeparture" :fields="COUNTRY_SELECT_FIELDS" />
+                    <disable-simple-input title="ОКСМ" :dis="true" :value="listsStore.countries[document.id_country_departure]?.OSCM_code ?? ''" :fixWidth="false" styleInput="width: 100px" />
                 </div>
 
                 <!--Найти Страна отправления модальное окно -->
@@ -743,7 +805,7 @@ onMounted(async () => {
                                     <table class="table table-hover table-bordered border-white">
                                         <thead style="background-color: #7da5f0; color: white">
                                             <tr>
-                                                <th>Код ОСКМ</th>
+                                                <th>ОКСМ</th>
                                                 <th>Наименование страны</th>
                                                 <th>Краткое наименование</th>
                                             </tr>
@@ -769,8 +831,8 @@ onMounted(async () => {
                 <!----------------------------- -->
 
                 <div class="row mb-1">
-                    <select-with-search title="Страна назначения" :values="listsStore.countries" valueKey="id" name="name" v-model="document.id_country_destination" modalName="InvoiceCountryDestination" :fields="{ 'Код ОСКМ': 'OSCM_code', 'Наименование': 'name', 'Краткое': 'short_name' }" />
-                    <disable-simple-input title="Код" :dis="true" :value="listsStore.countries[document.id_country_destination]?.OSCM_code ?? ''" :fixWidth="false" styleInput="width: 100px" />
+                    <select-with-search title="Страна назначения" :values="listsStore.countries" valueKey="id" name="name" v-model="document.id_country_destination" modalName="InvoiceCountryDestination" :fields="COUNTRY_SELECT_FIELDS" />
+                    <disable-simple-input title="ОКСМ" :dis="true" :value="listsStore.countries[document.id_country_destination]?.OSCM_code ?? ''" :fixWidth="false" styleInput="width: 100px" />
                 </div>
 
                 <!--Найти Страна назначения модальное окно -->
@@ -801,7 +863,7 @@ onMounted(async () => {
                                     <table class="table table-hover table-bordered border-white">
                                         <thead style="background-color: #7da5f0; color: white">
                                             <tr>
-                                                <th>Код ОСКМ</th>
+                                                <th>ОКСМ</th>
                                                 <th>Наименование страны</th>
                                                 <th>Краткое наименование</th>
                                             </tr>
@@ -855,7 +917,7 @@ onMounted(async () => {
                 </div>
 
                 <div class="row mb-1">
-                    <select-with-search title="Место оплаты" :values="listsStore.countries" valueKey="id" name="name" v-model="document.id_place_of_payment" modalName="InvoicePlacePayment" :fields="{ 'Код ОСКМ': 'OSCM_code', 'Наименование страны': 'name', 'Краткое наименование': 'short_name' }" />
+                    <simple-select title="Место оплаты" :values="placeOfPaymentOptions" valueKey="id" name="name" v-model="document.place_of_payment" />
                 </div>
 
                 <div class="row mb-1">
@@ -1021,8 +1083,16 @@ onMounted(async () => {
 
                 <div class="row mb-1">
                     <div class="col-auto">
-                        <button type="button" class="btn btn-custom" @click="addGoodsRow">Добавить</button>
-                        <button type="button" class="btn btn-custom" @click="startInlineEdit(selectedGoods, 'goods', 'Грузы')">Изменить</button>
+                        <button type="button" class="btn btn-custom" data-toggle="modal" data-target="#DobavitGruz" @click="openGoodsModal(-1)">Добавить</button>
+                        <button
+                            type="button"
+                            class="btn btn-custom"
+                            data-toggle="modal"
+                            data-target="#DobavitGruz"
+                            @click="startInlineEdit(selectedGoods, 'goods', 'Грузы'); openGoodsModal(readSelection(selectedGoods)[0])"
+                        >
+                            Изменить
+                        </button>
                         <button type="button" class="btn btn-custom" v-if="editingSection === 'goods'" @click="finishInlineEdit">Готово</button>
                         <button type="button" class="btn btn-custom" @click="removeSelectedByIndexes('goods', selectedGoods, 'Грузы')">Удалить</button>
                         <button type="button" class="btn btn-custom" @click="document.goods = []">Удалить все</button>
@@ -1051,8 +1121,28 @@ onMounted(async () => {
                                 <tbody class="table-group-divider">
                                     <tr v-for="(good, idx) in goodsRows" :key="`good-${idx}`" :data-edit-row="`goods-${idx}`" :class="{ 'editing-row': editingSection === 'goods' && editingIndex === idx }">
                                         <td><input type="checkbox" class="row-checkbox" :value="idx" v-model="selectedGoods" :disabled="editingSection === 'goods' && editingIndex !== idx" /></td>
-                                        <td>{{ listsStore.cargos[good.id_cargo]?.code_ETSNG ?? "—" }}</td>
-                                        <td>{{ listsStore.cargos[good.id_cargo]?.name ?? good.gng_name ?? "—" }}</td>
+                                        <td>
+                                            <template v-if="isRowEditable('goods', idx)">
+                                                <input
+                                                    type="text"
+                                                    class="form-control form-control-sm custom-input"
+                                                    v-model="good.gng_code"
+                                                    placeholder="Код груза"
+                                                />
+                                            </template>
+                                            <template v-else>{{ listsStore.cargos[good.id_cargo]?.code_ETSNG ?? good.gng_code ?? "—" }}</template>
+                                        </td>
+                                        <td>
+                                            <template v-if="isRowEditable('goods', idx)">
+                                                <input
+                                                    type="text"
+                                                    class="form-control form-control-sm custom-input"
+                                                    v-model="good.gng_name"
+                                                    placeholder="Наименование груза"
+                                                />
+                                            </template>
+                                            <template v-else>{{ listsStore.cargos[good.id_cargo]?.name ?? good.gng_name ?? "—" }}</template>
+                                        </td>
                                         <td><input type="text" class="form-control mt-0 custom-input" v-model="good.package" :disabled="!isRowEditable('goods', idx)" /></td>
                                         <td><input type="number" class="form-control mt-0 custom-input" v-model="good.places" :disabled="!isRowEditable('goods', idx)" /></td>
                                         <td><input type="number" class="form-control mt-0 custom-input" v-model="good.packages" :disabled="!isRowEditable('goods', idx)" /></td>
@@ -1067,15 +1157,13 @@ onMounted(async () => {
                 </div>
 
                 <div class="row mb-1">
-                    <label class="col-auto col-form-label mb-0 label-custom">Погрузка на вагон средствами</label>
-                    <div class="col-3">
-                        <select class="form-select mt-0 custom-input">
-                            <option value="">Выберете элемент списка</option>
-                            <option value="Грузоотправителя">Грузоотправителя</option>
-                            <option value="Грузоотправителя">Грузоотправителя</option>
-                            <option value="Плательщика">Плательщика</option>
-                        </select>
-                    </div>
+                    <simple-select
+                        title="Погрузка на вагон средствами"
+                        :values="wagonLoadingByOptions"
+                        valueKey="id"
+                        name="name"
+                        v-model="document.wagon_loading_by"
+                    />
                 </div>
 
                 <div class="row mb-1">
@@ -1100,13 +1188,52 @@ onMounted(async () => {
                                 <button type="button" class="btn-close" data-dismiss="modal" aria-label="Закрыть" style="color: white"></button>
                             </div>
                             <div class="modal-body">
+                                <template v-if="goodsDraft">
                                 <div class="row mb-3">
                                     <div class="col-auto">
-                                        <button type="button" class="btn btn-custom">Применить</button>
-                                        <button type="button" class="btn btn-custom" data-dismiss="modal">Отменить</button>
-
+                                        <button type="button" class="btn btn-custom" data-dismiss="modal" @click="applyGoodsModal">Применить</button>
+                                        <button type="button" class="btn btn-custom" data-dismiss="modal" @click="goodsDraft = null">Отменить</button>
                                     </div>
                                 </div>
+
+                                <div class="row mb-1">
+                                    <select-with-search
+                                        title="Груз ЕТ СНГ"
+                                        :values="listsStore.cargos"
+                                        valueKey="id"
+                                        name="name"
+                                        v-model="goodsDraft.id_cargo"
+                                        modalName="InvoiceGoodsCargo"
+                                        :fields="{ 'Код ЕТСНГ': 'code_ETSNG', 'Наименование': 'name' }"
+                                    />
+                                </div>
+
+                                <div class="row mb-1">
+                                    <label class="col-auto col-form-label mb-0 label-custom">Код груза</label>
+                                    <div class="col-auto">
+                                        <input v-model="goodsDraft.gng_code" type="text" class="form-control mt-0 custom-input" style="width: 268px" placeholder="Код ЕТСНГ / ГНГ" />
+                                    </div>
+                                    <label class="col-auto col-form-label mb-0 label-custom">Наименование груза</label>
+                                    <div class="col">
+                                        <input v-model="goodsDraft.gng_name" type="text" class="form-control mt-0 custom-input" placeholder="Наименование" />
+                                    </div>
+                                </div>
+
+                                <div class="row mb-1">
+                                    <label class="col-auto col-form-label mb-0 label-custom">Масса груза (кг)</label>
+                                    <div class="col-auto">
+                                        <input v-model="goodsDraft.planned_weight_kg" type="text" class="form-control mt-0 custom-input" style="width: auto" />
+                                    </div>
+                                    <label class="col-auto col-form-label mb-0 label-custom">Количество мест</label>
+                                    <div class="col-auto">
+                                        <input v-model="goodsDraft.places" type="text" class="form-control mt-0 custom-input" style="width: auto" />
+                                    </div>
+                                    <label class="col-auto col-form-label mb-0 label-custom">Признак опасного груза</label>
+                                    <div class="col-auto">
+                                        <input v-model="goodsDraft.danger" type="text" class="form-control mt-0 custom-input" style="width: 280px" placeholder="Неопасный груз" />
+                                    </div>
+                                </div>
+                                </template>
 
                                 <div class="row mb-1">
                                     <label class="col-auto col-form-label mb-0 label-custom" style="font-weight: bold">Опасный груз</label>
@@ -3389,15 +3516,13 @@ onMounted(async () => {
                 <!----------------------------- -->
 
                 <div class="row mb-1">
-                    <label class="col-auto col-form-label mb-0 label-custom">Кем проводилось</label>
-                    <div class="col-3">
-                        <select class="form-select mt-0 custom-input">
-                            <option value="">Выберете элемент списка</option>
-                            <option value="Грузоотправителем">Грузоотправителем</option>
-                            <option value="Погрузчиком">Погрузчиком</option>
-                            <option value="Получателем">Получателем</option>
-                        </select>
-                    </div>
+                    <simple-select
+                        title="Кем проводилось"
+                        :values="performedByOptions"
+                        valueKey="id"
+                        name="name"
+                        v-model="document.performed_by"
+                    />
                 </div>
 
                 <div class="row mb-1">

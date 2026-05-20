@@ -299,7 +299,7 @@ function referenceMetaRows(refKey, value) {
   }
 
   if (refKey === "countries") {
-    pushMeta("Код ОСКМ", record.OSCM_code);
+    pushMeta("ОКСМ", record.OSCM_code);
     pushMeta("Краткое", record.short_name);
     return rows;
   }
