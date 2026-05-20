@@ -29,6 +29,12 @@ const DICTIONARY_ROWS_MAX_LIMIT = Math.min(
   2000
 );
 
+/** Полная выгрузка справочника в Excel/JSON (как шаблон, со всеми строками) */
+const DICTIONARY_EXPORT_MAX_ROWS = Math.min(
+  Math.max(parseInt(process.env.DICTIONARY_EXPORT_MAX_ROWS, 10) || 200000, 1),
+  2000000
+);
+
 /** За один запрос массового удаления по id */
 const DICTIONARY_DELETE_BATCH_MAX_IDS = Math.min(
   Math.max(parseInt(process.env.DICTIONARY_DELETE_BATCH_MAX_IDS, 10) || 2000, 1),
@@ -336,7 +342,7 @@ function getDictionaryImportGuide(dictKey, def, meta) {
   const fields = Object.keys(meta || {}).filter((c) => c !== 'id');
   const override = IMPORT_GUIDE_OVERRIDES[dictKey] || {};
   const requiredFields = override.requiredFields || guessRequiredFields(fields);
-  const xlsxHeaders = override.xlsxExampleHeaders || fields.slice(0, 8);
+  const columnOrder = getDictionaryTemplateColumnOrder(dictKey, def, meta);
 
   return {
     acceptedFormats: ['.json', '.xlsx'],
@@ -354,7 +360,7 @@ function getDictionaryImportGuide(dictKey, def, meta) {
         `{${requiredFields.map((f, i) => `"${f}":"значение${i + 1}"`).join(',')}}`
     },
     xlsxTemplate: {
-      headerRow: xlsxHeaders
+      headerRow: columnOrder
     },
     uploadTips: [
       'JSON: массив объектов или объект-словарь по флагам.',
@@ -745,27 +751,99 @@ function parseXlsxRows(fileBuffer, flagMap) {
   return result;
 }
 
+/** Колонки шаблона/экспорта (без id и служебных меток времени), только по метаданным таблицы */
+function getSupportedTemplateColumnsFromMeta(tableMeta) {
+  return Object.keys(tableMeta || {}).filter((c) => {
+    const lower = String(c).toLowerCase();
+    return lower !== 'id' && lower !== 'created_at' && lower !== 'updated_at';
+  });
+}
+
+/**
+ * Порядок колонок в XLSX/JSON шаблоне и в выгрузке — как в xlsxExampleHeaders (если задан),
+ * затем остальные поля таблицы в стабильном порядке.
+ */
+function getDictionaryTemplateColumnOrder(dictKey, def, tableMeta) {
+  const supported = getSupportedTemplateColumnsFromMeta(tableMeta);
+  const supportedSet = new Set(supported);
+  const explicit = IMPORT_GUIDE_OVERRIDES[dictKey]?.xlsxExampleHeaders;
+  if (!Array.isArray(explicit) || !explicit.length) return supported;
+
+  const ordered = [];
+  const seen = new Set();
+  for (const h of explicit) {
+    if (supportedSet.has(h) && !seen.has(h)) {
+      ordered.push(h);
+      seen.add(h);
+    }
+  }
+  for (const c of supported) {
+    if (!seen.has(c)) {
+      ordered.push(c);
+      seen.add(c);
+    }
+  }
+  return ordered;
+}
+
+function buildOrderedRow(columns, valuesByCol) {
+  const row = {};
+  columns.forEach((col) => {
+    row[col] = valuesByCol[col];
+  });
+  return row;
+}
+
 function buildTemplateRows(dictKey, def, tableMeta) {
   const guide = getDictionaryImportGuide(dictKey, def, tableMeta);
-  const supported = (guide.supportedFields || []).filter(
-    (c) => c !== 'id' && c !== 'created_at' && c !== 'updated_at'
-  );
+  const columns = getDictionaryTemplateColumnOrder(dictKey, def, tableMeta);
   const required = guide.requiredFields || [];
 
-  const row = {};
-  supported.forEach((col) => {
-    row[col] = required.includes(col) ? `required_${col}` : '';
+  const values = {};
+  columns.forEach((col) => {
+    values[col] = required.includes(col) ? `required_${col}` : '';
   });
 
   // Более наглядный пример для stations
   if (dictKey === 'stations') {
-    row.name = row.name || 'Москва-Товарная';
-    row.code = row.code || '200000';
-    if (Object.prototype.hasOwnProperty.call(row, 'short_name')) row.short_name = 'Москва-Тов.';
-    if (Object.prototype.hasOwnProperty.call(row, 'railway')) row.railway = 'Московской ж.д. (17)';
+    values.name = values.name || 'Москва-Товарная';
+    values.code = values.code || '200000';
+    if (columns.includes('short_name')) values.short_name = 'Москва-Тов.';
+    if (columns.includes('railway')) values.railway = 'Московской ж.д. (17)';
   }
 
-  return [row];
+  return [buildOrderedRow(columns, values)];
+}
+
+function serializeCellForExport(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'bigint') return value.toString();
+  if (value instanceof Date) return value.toISOString();
+  return value;
+}
+
+function buildDictionaryExportRow(dbRow, columns) {
+  const values = {};
+  columns.forEach((col) => {
+    values[col] = serializeCellForExport(dbRow[col]);
+  });
+  return buildOrderedRow(columns, values);
+}
+
+async function loadDictionaryRowsForExport(tableName, maxAllowed) {
+  const cap = Math.min(Math.max(maxAllowed, 1), DICTIONARY_EXPORT_MAX_ROWS);
+  const [rows] = await sequelize.query(
+    `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT :lim`,
+    { replacements: { lim: cap + 1 } }
+  );
+  const list = Array.isArray(rows) ? rows : [];
+  if (list.length > cap) {
+    const err = new Error('export_too_large');
+    err.statusCode = 400;
+    err.maxRows = cap;
+    throw err;
+  }
+  return list;
 }
 
 async function applyDictionaryUpdate(tableName, row, id) {
@@ -1056,6 +1134,69 @@ function registerDictionaryRoutes(app) {
         return res.status(500).json({
           error: 'dictionary_template_failed',
           message: 'Не удалось сформировать шаблон файла.'
+        });
+      }
+    }
+  );
+
+  // Выгрузка всего справочника в том же формате колонок, что и шаблон (для правки в Excel и повторного импорта)
+  router.get(
+    '/api/dictionaries/:key/export',
+    keycloakAuth.verifyToken(),
+    keycloakAuth.requireAnyRealmRole(['dictionary-admin', 'app-admin']),
+    async (req, res) => {
+      try {
+        const dictKey = req.params.key;
+        const def = DICTIONARIES[dictKey];
+        if (!def) {
+          return res.status(400).json({ error: 'unknown_dictionary' });
+        }
+        const format = String(req.query.format || 'xlsx').toLowerCase();
+        if (format !== 'json' && format !== 'xlsx') {
+          return res.status(400).json({
+            error: 'bad_format',
+            message: 'Формат выгрузки должен быть json или xlsx.'
+          });
+        }
+
+        const tableMeta = await getTableMeta(dictKey);
+        const columns = getDictionaryTemplateColumnOrder(dictKey, def, tableMeta);
+        const dbRows = await loadDictionaryRowsForExport(def.table, DICTIONARY_EXPORT_MAX_ROWS);
+        const exportRows = dbRows.map((r) => buildDictionaryExportRow(r, columns));
+        const sheetRows =
+          exportRows.length > 0 ? exportRows : [buildDictionaryExportRow({}, columns)];
+        const base = `dictionary-export-${dictKey}`;
+
+        if (format === 'json') {
+          const json = JSON.stringify(sheetRows, null, 2);
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Content-Disposition', `attachment; filename="${base}.json"`);
+          return res.send(json);
+        }
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(sheetRows, {
+          skipHeader: false
+        });
+        XLSX.utils.book_append_sheet(wb, ws, 'template');
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        res.setHeader('Content-Disposition', `attachment; filename="${base}.xlsx"`);
+        return res.send(buffer);
+      } catch (error) {
+        if (error.message === 'export_too_large') {
+          return res.status(400).json({
+            error: 'export_too_large',
+            message: `Записей больше лимита выгрузки (${error.maxRows}). Увеличьте переменную окружения DICTIONARY_EXPORT_MAX_ROWS на сервере.`
+          });
+        }
+        console.error('Error exporting dictionary:', error);
+        return res.status(500).json({
+          error: 'dictionary_export_failed',
+          message: 'Не удалось выгрузить справочник.'
         });
       }
     }

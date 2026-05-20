@@ -465,6 +465,50 @@ async function downloadTemplate(format) {
   }
 }
 
+async function downloadExport(format) {
+  const key = selectedForUpdate.value;
+  if (!key) return;
+  try {
+    loading.value = true;
+    error.value = '';
+    const ext = format === 'xlsx' ? 'xlsx' : 'json';
+    const response = await axios.get(`${apiBase.value}/api/dictionaries/${key}/export`, {
+      headers: getAuthHeaders(),
+      params: { format: ext },
+      responseType: 'blob'
+    });
+
+    const blob = new Blob([response.data], { type: response.headers['content-type'] });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `dictionary-export-${key}.${ext}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error('Error exporting dictionary:', e);
+    let msg = 'Не удалось выгрузить справочник в файл.';
+    const data = e?.response?.data;
+    if (data instanceof Blob) {
+      try {
+        const text = await data.text();
+        const parsed = JSON.parse(text);
+        if (parsed?.message) msg = parsed.message;
+        else if (parsed?.error === 'export_too_large') msg = parsed.message || msg;
+      } catch {
+        /* ignore */
+      }
+    } else if (e?.response?.data?.message) {
+      msg = e.response.data.message;
+    }
+    error.value = msg;
+  } finally {
+    loading.value = false;
+  }
+}
+
 const visibleColumns = computed(() => {
   const m = meta.value || {};
   const cols = m.columns || {};
@@ -729,7 +773,8 @@ onMounted(() => {
           <h6 class="card-title">Загрузить из файла</h6>
           <p class="text-muted mb-2">
             Загрузите .json или .xlsx файл, чтобы автоматически добавить/обновить записи
-            выбранного справочника.
+            выбранного справочника. Кнопки «Выгрузить справочник» сохраняют все строки в том же
+            формате колонок, что и «Скачать шаблон» — файл можно править и снова загрузить.
           </p>
           <div class="row g-2 align-items-end">
             <div class="col-md-6">
@@ -768,6 +813,22 @@ onMounted(() => {
                   @click="downloadTemplate('xlsx')"
                 >
                   Скачать шаблон XLSX
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  :disabled="loading"
+                  @click="downloadExport('xlsx')"
+                >
+                  Выгрузить справочник в XLSX
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  :disabled="loading"
+                  @click="downloadExport('json')"
+                >
+                  Выгрузить справочник в JSON
                 </button>
               </div>
             </div>
