@@ -155,6 +155,11 @@ const cargoSecuredOptions = [
     { id: "Схема размещения грузоотправителя", name: "Схема размещения грузоотправителя" },
 ];
 
+const dangerCargoSignOptions = [
+    { id: "Неопасный груз", name: "Неопасный груз" },
+    { id: "Опасный груз", name: "Опасный груз" },
+];
+
 const zpuTypeOptions = [
     { id: "Пломба", name: "Пломба" },
     { id: "Блокиратор", name: "Блокиратор" },
@@ -278,7 +283,7 @@ function emptyGoodsRow() {
         planned_weight_kg: "",
         gng_name: "",
         gng_code: "",
-        danger: "",
+        danger: "Неопасный груз",
     };
 }
 
@@ -1228,27 +1233,21 @@ onMounted(async () => {
                                     <div class="col-auto">
                                         <input v-model="goodsDraft.places" type="text" class="form-control mt-0 custom-input" style="width: auto" />
                                     </div>
-                                    <label class="col-auto col-form-label mb-0 label-custom">Признак опасного груза</label>
-                                    <div class="col-auto">
-                                        <input v-model="goodsDraft.danger" type="text" class="form-control mt-0 custom-input" style="width: 280px" placeholder="Неопасный груз" />
-                                    </div>
+                                </div>
+
+                                <div class="row mb-1">
+                                    <simple-select
+                                        title="Признак опасного груза"
+                                        :values="dangerCargoSignOptions"
+                                        valueKey="id"
+                                        name="name"
+                                        v-model="goodsDraft.danger"
+                                    />
                                 </div>
                                 </template>
 
                                 <div class="row mb-1">
                                     <label class="col-auto col-form-label mb-0 label-custom" style="font-weight: bold">Опасный груз</label>
-                                </div>
-
-                                <div class="row mb-1">
-                                    <label class="col-auto col-form-label mb-0 label-custom">Признак опасного груза</label>
-                                    <div class="col-3">
-                                        <select class="form-select mt-0 custom-input">
-                                            <option value="">Выберете элемент списка</option>
-                                            <option value="Неопасный груз">Неопасный груз</option>
-                                            <option value="Контейнерная">Контейнерная</option>
-                                            <option value="Контейнерная комплектом на вагон">Контейнерная комплектом на вагон</option>
-                                        </select>
-                                    </div>
                                 </div>
 
                                 <div class="row mb-1">
