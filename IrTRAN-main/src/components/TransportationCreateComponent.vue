@@ -1,5 +1,6 @@
 <script setup>
-import { onMounted, ref, watch, computed } from "vue";
+import { onMounted, ref, watch, computed, nextTick } from "vue";
+import { openModalSafely, closeModalSafely as closeBootstrapModal } from "@/helpers/modalHelper";
 import {
     saveTransporation,
     deleteTransporation,
@@ -315,18 +316,18 @@ function updateSending(sendingValue) {
         document.value.Sendings.push(id);
     }
     selectedSendingIds.value = [];
+    closeModalSafely("DobavitOtpravka");
 }
 
-function startCreateSending(event) {
+function startCreateSending() {
     if (!document.value?.id_cargo_group) {
-        event?.preventDefault?.();
-        event?.stopPropagation?.();
         saveError.value = "Перед добавлением отправки выберите группу груза в заявке.";
         return;
     }
     saveError.value = null;
     activeSendingId.value = null;
     sendingResetNonce.value += 1;
+    nextTick(() => openModalSafely("DobavitOtpravka"));
 }
 
 function startEditSending() {
@@ -336,7 +337,9 @@ function startEditSending() {
     }
     const id = Number(selectedSendingIds.value?.[0]);
     if (!Number.isFinite(id)) return;
+    saveError.value = null;
     activeSendingId.value = id;
+    nextTick(() => openModalSafely("DobavitOtpravka"));
 }
 
 function removeSelectedSendings() {
@@ -379,105 +382,7 @@ function closeModalSafely(modalId) {
     if (modalId === "staticPlatelshic") {
         isPayerModalOpen.value = false;
     }
-    try {
-        const dom = window.document;
-        if (dom.activeElement && typeof dom.activeElement.blur === "function") {
-            dom.activeElement.blur();
-        }
-        const modalEl = dom.getElementById(modalId);
-        if (!modalEl) return;
-        const bs = window.bootstrap;
-        const jq = window.jQuery || window.$;
-
-        if (bs?.Modal) {
-            const instance = bs.Modal.getInstance(modalEl) || new bs.Modal(modalEl);
-            instance.hide();
-            window.setTimeout(() => {
-                try {
-                    const still = bs.Modal.getInstance(modalEl);
-                    still?.dispose?.();
-                } catch (_) {
-                    // noop
-                }
-            }, 220);
-        }
-        if (jq && typeof jq(modalEl).modal === "function") {
-            jq(modalEl).modal("hide");
-            try {
-                jq(modalEl).off("shown.bs.modal hidden.bs.modal");
-            } catch (_) {
-                // noop
-            }
-        }
-
-        // Финальный fallback: принудительно чистим состояние модалки.
-        const forceCleanup = () => {
-            modalEl.classList.remove("show", "in");
-            modalEl.style.display = "none";
-            modalEl.removeAttribute("aria-modal");
-            dom.body.classList.remove("modal-open");
-            dom.body.style.removeProperty("padding-right");
-            dom.querySelectorAll(".modal-backdrop").forEach((el) => el.remove());
-        };
-
-        // Запускаем сразу и повторно после тикa/анимации.
-        forceCleanup();
-        window.requestAnimationFrame(forceCleanup);
-        window.setTimeout(forceCleanup, 200);
-    } catch (_) {
-        // noop
-    }
-}
-
-function openModalSafely(modalId) {
-    const dom = window.document;
-    const modalEl = dom.getElementById(modalId);
-    if (!modalEl) return;
-    const bs = window.bootstrap;
-    const jq = window.jQuery || window.$;
-    let opened = false;
-
-    // Стратегия 1: Bootstrap 5 API.
-    try {
-        if (bs?.Modal) {
-            const instance = bs.Modal.getInstance(modalEl) || new bs.Modal(modalEl);
-            instance.show();
-            opened = true;
-        }
-    } catch (_) {
-        opened = false;
-    }
-
-    // Стратегия 2: Bootstrap 4 jQuery API.
-    if (!opened) {
-        try {
-            if (jq && typeof jq(modalEl).modal === "function") {
-                jq(modalEl).modal("show");
-                opened = true;
-            }
-        } catch (_) {
-            opened = false;
-        }
-    }
-
-    // Стратегия 3: принудительный fallback (гарантия отображения).
-    if (!opened) {
-        try {
-            modalEl.classList.add("show", "in");
-            modalEl.style.display = "block";
-            modalEl.setAttribute("aria-modal", "true");
-            modalEl.setAttribute("role", "dialog");
-            modalEl.removeAttribute("aria-hidden");
-            dom.body.classList.add("modal-open");
-            if (!dom.querySelector(".modal-backdrop")) {
-                const backdrop = dom.createElement("div");
-                backdrop.className = "modal-backdrop fade show";
-                dom.body.appendChild(backdrop);
-            }
-        } catch (_) {
-            // noop
-        }
-    }
+    closeBootstrapModal(modalId);
 }
 
 function openSubmissionScheduleModalForCreate() {
@@ -919,8 +824,8 @@ watch(
 
                 <div class="row mb-1">
                     <div class="col-auto">
-                        <simple-button data-toggle="modal" data-target="#DobavitOtpravka" title="Добавить" @click="startCreateSending($event)"/>
-                        <simple-button data-toggle="modal" data-target="#DobavitOtpravka" title="Изменить" @click="startEditSending"/>
+                        <simple-button title="Добавить" @click="startCreateSending"/>
+                        <simple-button title="Изменить" @click="startEditSending"/>
                         <simple-button title="Удалить" @click="removeSelectedSendings"/>
                         <simple-button title="Копировать"/>
                         <simple-button title="Вставить"/>

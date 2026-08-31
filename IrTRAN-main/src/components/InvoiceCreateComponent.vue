@@ -23,6 +23,7 @@ import {
 } from "@/helpers/API";
 import { getToken } from "@/helpers/keycloak";
 import { COUNTRY_CLASSIFIER_LABEL, COUNTRY_SELECT_FIELDS } from "@/config/formFieldLabels";
+import { openModalSafely, closeModalSafely } from "@/helpers/modalHelper";
 
 const route = useRoute();
 const router = useRouter();
@@ -304,6 +305,32 @@ function openGoodsModal(index = -1) {
     }
 }
 
+async function startCreateGoodsModal() {
+    saveError.value = null;
+    openGoodsModal(-1);
+    await nextTick();
+    openModalSafely("DobavitGruz");
+}
+
+async function startEditGoodsModal() {
+    const indexes = readSelection(selectedGoods.value);
+    if (indexes.length !== 1) {
+        saveError.value = "Для изменения груза выберите ровно одну строку.";
+        return;
+    }
+    saveError.value = null;
+    startInlineEdit(selectedGoods, "goods", "Грузы");
+    openGoodsModal(indexes[0]);
+    await nextTick();
+    openModalSafely("DobavitGruz");
+}
+
+function cancelGoodsModal() {
+    goodsDraft.value = null;
+    goodsModalIndex.value = -1;
+    closeModalSafely("DobavitGruz");
+}
+
 function applyGoodsModal() {
     if (!goodsDraft.value) return;
     syncGoodFromCargo(goodsDraft.value);
@@ -315,6 +342,7 @@ function applyGoodsModal() {
     }
     goodsDraft.value = null;
     goodsModalIndex.value = -1;
+    closeModalSafely("DobavitGruz");
 }
 
 function addGoodsRow() {
@@ -1088,16 +1116,8 @@ onMounted(async () => {
 
                 <div class="row mb-1">
                     <div class="col-auto">
-                        <button type="button" class="btn btn-custom" data-toggle="modal" data-target="#DobavitGruz" @click="openGoodsModal(-1)">Добавить</button>
-                        <button
-                            type="button"
-                            class="btn btn-custom"
-                            data-toggle="modal"
-                            data-target="#DobavitGruz"
-                            @click="startInlineEdit(selectedGoods, 'goods', 'Грузы'); openGoodsModal(readSelection(selectedGoods)[0])"
-                        >
-                            Изменить
-                        </button>
+                        <button type="button" class="btn btn-custom" @click="startCreateGoodsModal">Добавить</button>
+                        <button type="button" class="btn btn-custom" @click="startEditGoodsModal">Изменить</button>
                         <button type="button" class="btn btn-custom" v-if="editingSection === 'goods'" @click="finishInlineEdit">Готово</button>
                         <button type="button" class="btn btn-custom" @click="removeSelectedByIndexes('goods', selectedGoods, 'Грузы')">Удалить</button>
                         <button type="button" class="btn btn-custom" @click="document.goods = []">Удалить все</button>
@@ -1190,14 +1210,14 @@ onMounted(async () => {
                             <div class="modal-header" style="background-color: #7da5f0">
                                 <span class="modal-title text-center col-auto" id="staticBackdropLabel" style="color: white; font-weight: bold">Грузы</span>
                                 <span class="modal-title text-center" id="staticBackdropLabel" style="color: white; background-color: red; margin: 0 32%">Поле "Груз ЕТ СНГ" обязательно к заполнению</span>
-                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Закрыть" style="color: white"></button>
+                                <button type="button" class="btn-close" aria-label="Закрыть" style="color: white" @click="cancelGoodsModal"></button>
                             </div>
                             <div class="modal-body">
                                 <template v-if="goodsDraft">
                                 <div class="row mb-3">
                                     <div class="col-auto">
-                                        <button type="button" class="btn btn-custom" data-dismiss="modal" @click="applyGoodsModal">Применить</button>
-                                        <button type="button" class="btn btn-custom" data-dismiss="modal" @click="goodsDraft = null">Отменить</button>
+                                        <button type="button" class="btn btn-custom" @click="applyGoodsModal">Применить</button>
+                                        <button type="button" class="btn btn-custom" @click="cancelGoodsModal">Отменить</button>
                                     </div>
                                 </div>
 
