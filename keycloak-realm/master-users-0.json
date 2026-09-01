@@ -1,0 +1,161 @@
+{
+  "realm" : "master",
+  "users" : [{
+    "id" : "03902bf4-344b-42d3-96f2-acfa42b496a1",
+    "username" : "arturtester@irtrantester.ru",
+    "firstName" : "Артур",
+    "lastName" : "Кашапов",
+    "email" : "arturtester@irtrantester.ru",
+    "emailVerified" : true,
+    "attributes" : {
+      "locale" : [ "ru" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1772454637049,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "09f7f9a6-6b85-4125-a1e1-746a96f87715",
+      "type" : "password",
+      "userLabel" : "arturtester1",
+      "createdDate" : 1772454710127,
+      "secretData" : "{\"value\":\"NNH7ZukMKCEFXkfNRo6aImeqwJoymRUHILjd5yaPyX0=\",\"salt\":\"crPb2JbFS1Ctdf5S1gdQPg==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-master", "student" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "75b68f9a-8624-45ce-8912-9964a85916ea",
+    "username" : "daniiltester@irtrantester.ru",
+    "firstName" : "Даниил",
+    "lastName" : "Мамойко",
+    "email" : "daniiltester@irtrantester.ru",
+    "emailVerified" : true,
+    "enabled" : true,
+    "createdTimestamp" : 1772455011058,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "2d3ed6e8-5165-4b0b-8d8d-392ad057bded",
+      "type" : "password",
+      "userLabel" : "daniiltester3",
+      "createdDate" : 1772455023169,
+      "secretData" : "{\"value\":\"gr3lmgWFbvajZC9g5lVjAFy6N8QmYENZodch8WtMWhs=\",\"salt\":\"iPnL6Beh/RY7D0eb3r1Ebg==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ "UPDATE_PASSWORD" ],
+    "realmRoles" : [ "default-roles-master", "student" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "548a04df-6dea-4a01-a9da-70a6dec37d1b",
+    "username" : "dipostff@gmail.com",
+    "email" : "dipostff@gmail.com",
+    "emailVerified" : true,
+    "attributes" : {
+      "is_temporary_admin" : [ "true" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1763275289849,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "1e338427-3450-411a-ae02-a1ba6f715037",
+      "type" : "password",
+      "createdDate" : 1763275289972,
+      "secretData" : "{\"value\":\"f6kupGUwT+t3gzEmADRbD7AJ/jPZXUfejQQUFXglr3c=\",\"salt\":\"Xs/8xaWM5zOlEjPorfUMjg==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-master", "admin", "app-admin", "student", "teacher", "dictionary-admin" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "ba7c8659-8b77-4e1e-b78d-3147cf666a36",
+    "username" : "ilyaester@irtrantester.ru",
+    "firstName" : "Илья",
+    "lastName" : "Ясеновский",
+    "email" : "ilyaester@irtrantester.ru",
+    "emailVerified" : true,
+    "enabled" : true,
+    "createdTimestamp" : 1772455107490,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "d20e5993-82c0-4dc8-9f28-3740880aed25",
+      "type" : "password",
+      "userLabel" : "ilyaester4",
+      "createdDate" : 1772455122912,
+      "secretData" : "{\"value\":\"jPGCCJvAGQbZoAL5WiAdQtKgJHq2iePmd5zUIyhXAgo=\",\"salt\":\"rcodd8k9VaykxhWioVSb3w==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ "UPDATE_PASSWORD" ],
+    "realmRoles" : [ "default-roles-master", "student" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "ba64bb04-97fc-4c8a-99ad-d1c02abd8cf8",
+    "username" : "kirilltester@irtrantester.ru",
+    "firstName" : "Кирилл",
+    "lastName" : "Майоров",
+    "email" : "kirilltester@irtrantester.ru",
+    "emailVerified" : true,
+    "enabled" : true,
+    "createdTimestamp" : 1772454930869,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "9b1f2659-b0be-441c-8935-621aa586d0f0",
+      "type" : "password",
+      "userLabel" : "kirilltester2",
+      "createdDate" : 1772454943354,
+      "secretData" : "{\"value\":\"uBor2LQh3e13mGBZlW6WA4wNl1j+OZ+tmfah0GGdn2Q=\",\"salt\":\"kJNPi+RKnl8OhL0musPjEQ==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ "UPDATE_PASSWORD" ],
+    "realmRoles" : [ "default-roles-master", "student" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "8dafcfcc-5217-4201-b6dd-3a403448ee54",
+    "username" : "rrfluxe@gmail.com",
+    "firstName" : "Дёма",
+    "lastName" : "Данил",
+    "email" : "rrfluxe@gmail.com",
+    "emailVerified" : true,
+    "attributes" : {
+      "locale" : [ "ru" ]
+    },
+    "enabled" : true,
+    "createdTimestamp" : 1771138970622,
+    "totp" : false,
+    "credentials" : [ {
+      "id" : "7d789c30-2ec7-4f67-82ba-484ec21f144f",
+      "type" : "password",
+      "createdDate" : 1771138970660,
+      "secretData" : "{\"value\":\"XFacefMnT5Ic7C5oTUQQ9bfj6Z0IB2aEfSzpo9taDeU=\",\"salt\":\"amj8tPOuHXxCosIaE3izHQ==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
+    } ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-master", "student" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
+    "id" : "7de01945-186c-4349-88ec-e94382e9d824",
+    "username" : "service-account-mail",
+    "emailVerified" : false,
+    "enabled" : true,
+    "createdTimestamp" : 1763982360714,
+    "totp" : false,
+    "serviceAccountClientId" : "mail",
+    "credentials" : [ ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-master" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  } ]
+}
