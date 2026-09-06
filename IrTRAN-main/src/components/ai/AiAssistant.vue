@@ -9,6 +9,7 @@ import {
 import { getAiStatus, resetAiSession, streamAiMessage } from "@/helpers/API";
 
 const isOpen = ref(false);
+const isExpanded = ref(false);
 const isSending = ref(false);
 const statusChecked = ref(false);
 const serviceAvailable = ref(true);
@@ -157,6 +158,15 @@ function stopAutoScroll() {
 
 function renderMarkdown(value) {
   return DOMPurify.sanitize(marked.parse(String(value || ""), { breaks: true, gfm: true }));
+}
+
+function validationIssueLabel(count) {
+  const lastTwoDigits = count % 100;
+  const lastDigit = count % 10;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return "пунктов для проверки";
+  if (lastDigit === 1) return "пункт для проверки";
+  if (lastDigit >= 2 && lastDigit <= 4) return "пункта для проверки";
+  return "пунктов для проверки";
 }
 
 async function checkStatus() {
@@ -374,7 +384,7 @@ loadMessages();
 </script>
 
 <template>
-  <div class="ai-assistant" :class="{ open: isOpen }">
+  <div class="ai-assistant" :class="{ open: isOpen, expanded: isExpanded }">
     <transition name="assistant-panel">
       <section v-if="isOpen" class="ai-panel" role="dialog" aria-label="ИИ-наставник">
         <header class="ai-header">
@@ -387,6 +397,16 @@ loadMessages();
             <div class="ai-context">{{ contextSubtitle }}</div>
           </div>
           <div class="ai-header-actions">
+            <button
+              class="icon-button expand-button"
+              type="button"
+              :title="isExpanded ? 'Уменьшить окно' : 'Увеличить окно'"
+              :aria-label="isExpanded ? 'Уменьшить окно ИИ-наставника' : 'Увеличить окно ИИ-наставника'"
+              :aria-pressed="isExpanded"
+              @click="isExpanded = !isExpanded"
+            >
+              <font-awesome-icon :icon="['fas', isExpanded ? 'compress' : 'expand']" />
+            </button>
             <button class="icon-button" type="button" title="Начать новый диалог" @click="clearConversation">
               <font-awesome-icon :icon="['fas', 'rotate-right']" />
             </button>
@@ -429,7 +449,7 @@ loadMessages();
             <div v-else class="message-text">{{ message.text }}</div>
             <div v-if="message.issues?.length" class="issue-summary">
               <span>{{ message.issues.length }}</span>
-              {{ message.issues.length === 1 ? "пункт для проверки" : "пунктов для проверки" }}
+              {{ validationIssueLabel(message.issues.length) }}
             </div>
             <div v-if="message.sources?.length" class="message-sources">
               <span>Материалы</span>
@@ -538,6 +558,12 @@ loadMessages();
   backdrop-filter: blur(18px);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  transition: width 320ms cubic-bezier(.4, 0, .2, 1), height 320ms cubic-bezier(.4, 0, .2, 1);
+}
+
+.ai-assistant.expanded .ai-panel {
+  width: min(760px, calc(100vw - 48px));
+  height: min(840px, calc(100vh - 48px));
 }
 
 .ai-header { padding: 17px 16px 15px; display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 11px; background: linear-gradient(145deg, #1f3158 0%, #273f73 52%, #4b3d80 100%); color: white; }
@@ -564,6 +590,21 @@ loadMessages();
 .stream-text { white-space: normal; }
 .stream-token { display: inline-block; white-space: pre-wrap; animation: ai-token-wave .62s cubic-bezier(.37,0,.63,1) both; will-change: opacity, transform; }
 .message-markdown { white-space: normal; }
+.message-markdown :deep(h1),
+.message-markdown :deep(h2),
+.message-markdown :deep(h3),
+.message-markdown :deep(h4),
+.message-markdown :deep(h5),
+.message-markdown :deep(h6) { margin: .8em 0 .38em; line-height: 1.35; font-weight: 800; overflow-wrap: anywhere; }
+.message-markdown :deep(h1) { font-size: 16px; }
+.message-markdown :deep(h2) { font-size: 15px; }
+.message-markdown :deep(h3) { font-size: 14px; }
+.message-markdown :deep(h4),
+.message-markdown :deep(h5),
+.message-markdown :deep(h6) { font-size: 13px; }
+.message-markdown :deep(h1:first-child),
+.message-markdown :deep(h2:first-child),
+.message-markdown :deep(h3:first-child) { margin-top: 0; }
 .message-markdown :deep(p) { margin: 0 0 .65em; }
 .message-markdown :deep(p:last-child) { margin-bottom: 0; }
 .message-markdown :deep(ul), .message-markdown :deep(ol) { margin: .45em 0 .7em; padding-left: 1.4em; }
@@ -611,12 +652,14 @@ loadMessages();
 @media (max-width: 600px) {
   .ai-assistant { right: 12px; bottom: 12px; }
   .ai-panel { width: calc(100vw - 24px); height: min(720px, calc(100vh - 24px)); border-radius: 22px; }
+  .ai-assistant.expanded .ai-panel { width: calc(100vw - 24px); height: calc(100vh - 24px); }
+  .expand-button { display: none; }
   .ai-launcher { min-width: 62px; width: 62px; padding: 10px; border-radius: 21px; }
   .launcher-copy { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-launcher, .assistant-panel-enter-active, .assistant-panel-leave-active { transition: none; }
+  .ai-launcher, .ai-panel, .assistant-panel-enter-active, .assistant-panel-leave-active { transition: none; }
   .typing span, .stream-token { animation: none; }
 }
 </style>
