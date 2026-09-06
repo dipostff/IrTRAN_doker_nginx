@@ -1,5 +1,6 @@
 package abopijservice.code.aiirtran.config;
 
+import abopijservice.code.aiirtran.tool.ContextRetrievalAugmentationTools;
 import abopijservice.code.aiirtran.tool.IrtranDocumentTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -28,12 +29,13 @@ public class AiAgentConfiguration {
             ChatClient.Builder builder,
             ChatMemory chatMemory,
             IrtranDocumentTools documentTools,
+            ContextRetrievalAugmentationTools contextRetrievelAugmentationTools,
             @Value("classpath:/prompts/irtran-system-prompt.txt") Resource systemPrompt
     ) throws IOException {
         return builder
                 .defaultSystem(systemPrompt.getContentAsString(StandardCharsets.UTF_8))
                 .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
-                .defaultTools(documentTools)
+                .defaultTools(documentTools, contextRetrievelAugmentationTools)
                 .build();
     }
 }

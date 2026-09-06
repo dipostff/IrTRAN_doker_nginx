@@ -24,7 +24,6 @@ spring:
       api-key: ${DEEPSEEK_API_KEY:not-configured}
       chat:
         model: ${DEEPSEEK_MODEL:deepseek-v4-flash}
-        temperature: ${DEEPSEEK_TEMPERATURE:0.25}
         max-tokens: ${DEEPSEEK_MAX_TOKENS:1200}
     retry:
       max-attempts: 3
@@ -65,3 +64,4 @@ logging:
     root: INFO
     abopijservice.code.aiirtran: INFO
     org.springframework.ai: WARN
+    org.springframework.ai.chat.model.MessageAggregator: OFF

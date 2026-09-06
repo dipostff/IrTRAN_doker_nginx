@@ -14,6 +14,7 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.Disposable;
 
@@ -78,7 +79,12 @@ public class IrtranAiAgentService {
         } catch (AiProviderException exception) {
             throw exception;
         } catch (RuntimeException exception) {
-            log.warn("AI provider request failed for session {}", request.sessionId(), exception);
+            log.warn(
+                    "AI provider request failed for session {}: {}",
+                    request.sessionId(),
+                    providerFailureSummary(exception)
+            );
+            log.debug("AI provider request stack trace for session " + request.sessionId(), exception);
             throw new AiProviderException("ИИ-помощник временно не смог получить ответ от модели", exception);
         }
     }
@@ -242,7 +248,8 @@ public class IrtranAiAgentService {
             Throwable exception
     ) {
         if (!finished.compareAndSet(false, true)) return;
-        log.warn("AI provider stream failed for session {}", sessionId, exception);
+        log.warn("AI provider stream failed for session {}: {}", sessionId, providerFailureSummary(exception));
+        log.debug("AI provider stream stack trace for session " + sessionId, exception);
         try {
             emitter.send(SseEmitter.event().name("error").data(Map.of(
                     "error", "ai_provider_error",
@@ -262,7 +269,24 @@ public class IrtranAiAgentService {
         putIfPresent(result, "documentId", context.documentId());
         putIfPresent(result, "currentStep", context.currentStep());
         result.put("clientDocument", request.safeDocumentContext());
+        result.put("userMessage", request.message());
         return result;
+    }
+
+    private String providerFailureSummary(Throwable exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof WebClientResponseException responseException) {
+                String body = responseException.getResponseBodyAsString().replaceAll("\\s+", " ").trim();
+                if (body.length() > 600) body = body.substring(0, 600) + "…";
+                return "HTTP " + responseException.getStatusCode().value()
+                        + (body.isBlank() ? "" : " — " + body);
+            }
+            current = current.getCause();
+        }
+        String message = exception.getMessage();
+        return exception.getClass().getSimpleName()
+                + (StringUtils.hasText(message) ? " — " + message : "");
     }
 
     private void putIfPresent(Map<String, Object> target, String key, Object value) {

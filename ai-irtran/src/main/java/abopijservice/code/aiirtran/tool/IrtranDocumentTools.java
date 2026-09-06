@@ -6,6 +6,8 @@ import abopijservice.code.aiirtran.api.ValidationIssue;
 import abopijservice.code.aiirtran.service.DocumentContextService;
 import abopijservice.code.aiirtran.service.DocumentDefinitionCatalog;
 import abopijservice.code.aiirtran.service.KnowledgeSearchService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -16,6 +18,8 @@ import java.util.Map;
 
 @Component
 public class IrtranDocumentTools {
+
+    private static final Logger log = LoggerFactory.getLogger(IrtranDocumentTools.class);
 
     private final DocumentContextService documentContextService;
     private final DocumentDefinitionCatalog catalog;
@@ -36,7 +40,15 @@ public class IrtranDocumentTools {
             формы или ответом о причине ошибки. Инструмент проверяет владельца документа по данным авторизации.
             """)
     public DocumentContext getCurrentDocument(ToolContext toolContext) {
-        return resolve(toolContext);
+        logInvocation("get_current_document", toolContext);
+        DocumentContext context = resolve(toolContext);
+        log.info(
+                "AI tool completed: get_current_document documentType={} filledFields={} issues={}",
+                context.documentType(),
+                context.filledFields().size(),
+                context.validationIssues().size()
+        );
+        return context;
     }
 
     @Tool(name = "validate_current_document", description = """
@@ -44,13 +56,21 @@ public class IrtranDocumentTools {
             студент спрашивает, почему документ не принимается. Не придумывай дополнительные ошибки.
             """)
     public ValidationResult validateCurrentDocument(ToolContext toolContext) {
+        logInvocation("validate_current_document", toolContext);
         DocumentContext context = resolve(toolContext);
-        return new ValidationResult(
+        ValidationResult result = new ValidationResult(
                 context.documentType(),
                 context.documentTypeLabel(),
                 context.validationIssues().isEmpty(),
                 context.validationIssues()
         );
+        log.info(
+                "AI tool completed: validate_current_document documentType={} valid={} issues={}",
+                result.documentType(),
+                result.valid(),
+                result.issues().size()
+        );
+        return result;
     }
 
     @Tool(name = "get_validation_errors", description = """
@@ -58,7 +78,10 @@ public class IrtranDocumentTools {
             последовательного разбора проблем без автоматического исправления данных студента.
             """)
     public List<ValidationIssue> getValidationErrors(ToolContext toolContext) {
-        return resolve(toolContext).validationIssues();
+        logInvocation("get_validation_errors", toolContext);
+        List<ValidationIssue> issues = resolve(toolContext).validationIssues();
+        log.info("AI tool completed: get_validation_errors issues={}", issues.size());
+        return issues;
     }
 
     @Tool(name = "get_field_info", description = """
@@ -69,10 +92,25 @@ public class IrtranDocumentTools {
             @ToolParam(description = "Техническое имя или русское название поля") String fieldName,
             ToolContext toolContext
     ) {
+        logInvocation("get_field_info", toolContext);
         String documentType = stringValue(toolContext, "documentType");
         DocumentDefinitionCatalog.FieldDefinition field = catalog.describeField(documentType, fieldName);
         List<KnowledgeSource> sources = knowledgeSearchService.search(field.label());
-        return new FieldInfoResult(documentType, field.name(), field.label(), field.description(), field.required(), sources);
+        FieldInfoResult result = new FieldInfoResult(
+                documentType,
+                field.name(),
+                field.label(),
+                field.description(),
+                field.required(),
+                sources
+        );
+        log.info(
+                "AI tool completed: get_field_info documentType={} field={} sources={}",
+                documentType,
+                field.name(),
+                sources.size()
+        );
+        return result;
     }
 
     @Tool(name = "search_training_materials", description = """
@@ -83,7 +121,23 @@ public class IrtranDocumentTools {
             @ToolParam(description = "Короткий поисковый запрос по теме или полю") String query,
             ToolContext toolContext
     ) {
-        return knowledgeSearchService.search(query);
+        logInvocation("search_training_materials", toolContext);
+        List<KnowledgeSource> sources = knowledgeSearchService.search(query);
+        log.info(
+                "AI tool completed: search_training_materials queryLength={} sources={}",
+                query == null ? 0 : query.length(),
+                sources.size()
+        );
+        return sources;
+    }
+
+    private void logInvocation(String toolName, ToolContext toolContext) {
+        log.info(
+                "AI tool invoked: {} documentType={} documentId={}",
+                toolName,
+                stringValue(toolContext, "documentType"),
+                toolContext.getContext().get("documentId")
+        );
     }
 
     @SuppressWarnings("unchecked")

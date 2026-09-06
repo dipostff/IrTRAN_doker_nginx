@@ -463,6 +463,8 @@ watch(
 .menu-favorites {
   width: min(980px, 100%);
   margin: 0 auto 14px;
+  box-sizing: border-box;
+  padding-left: 1rem;
 }
 .favorites-title {
   color: #2b3b55;
