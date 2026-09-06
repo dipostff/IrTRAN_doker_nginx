@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: ai-irtran
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/irtran?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Irkutsk}
+    username: ${SPRING_DATASOURCE_USERNAME:irtran}
+    password: ${SPRING_DATASOURCE_PASSWORD:irtran}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:6}
+      minimum-idle: 1
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Irkutsk
+  ai:
+    model:
+      chat: deepseek
+      embedding: none
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:not-configured}
+      chat:
+        model: ${DEEPSEEK_MODEL:deepseek-v4-flash}
+        temperature: ${DEEPSEEK_TEMPERATURE:0.25}
+        max-tokens: ${DEEPSEEK_MAX_TOKENS:1200}
+    retry:
+      max-attempts: 3
+      backoff:
+        initial-interval: 1s
+        multiplier: 2
+        max-interval: 8s
+
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+irtran:
+  ai:
+    enabled: ${AI_ENABLED:true}
+    configured-api-key: ${DEEPSEEK_API_KEY:}
+    model: ${DEEPSEEK_MODEL:deepseek-v4-flash}
+    memory-window: ${AI_MEMORY_WINDOW:24}
+    max-context-fields: ${AI_MAX_CONTEXT_FIELDS:120}
+  security:
+    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/master}
+    jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/master/protocol/openid-connect/certs}
+    allowed-origins: ${AI_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+logging:
+  level:
+    root: INFO
+    abopijservice.code.aiirtran: INFO
+    org.springframework.ai: WARN

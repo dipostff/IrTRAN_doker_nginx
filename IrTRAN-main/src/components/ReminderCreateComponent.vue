@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useListsStore } from "@/stores/main";
 import { useTrainingSimulatorContext } from "@/composables/useTrainingSimulatorContext";
+import { useAiDocumentContext } from "@/composables/useAiDocumentContext";
 import TrainingScenarioPanel from "@/components/training/TrainingScenarioPanel.vue";
 import { validateTrainingDocument } from "@/helpers/trainingDocumentValidators";
 import { updateTitle } from "@/helpers/headerHelper";
@@ -46,6 +47,11 @@ function getDefaultDocument() {
 const document = ref(getDefaultDocument());
 
 const activeTab = ref("document");
+useAiDocumentContext("reminder", document, {
+    source: "student",
+    label: "Памятка приёмосдатчика",
+    currentStep: () => activeTab.value === "document" ? "Заполнение памятки" : "История изменений",
+});
 const selectedWagonLines = ref([]);
 const clipboardWagonLine = ref(null);
 const editingWagonLineIndex = ref(-1);

@@ -1,8 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import axios from 'axios';
 import { getToken, isAppAdmin, isDictionaryAdmin, isPureStudentAccount } from '@/helpers/keycloak';
 import { postReferenceMaterialView } from '@/helpers/API';
+
+const route = useRoute();
+const runtimeOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+const apiBaseUrl = (import.meta.env.VITE_API_URL || runtimeOrigin).replace(/\/$/, '');
 
 const loading = ref(false);
 const items = ref([]);
@@ -28,6 +33,7 @@ const manageSuccess = ref('');
 onMounted(() => {
   isAdmin.value = isAppAdmin();
   canManageReferences.value = isAppAdmin() || isDictionaryAdmin();
+  if (typeof route.query.q === 'string') query.value = route.query.q;
   loadData();
 });
 
@@ -62,7 +68,7 @@ async function loadData() {
     };
 
     const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference`,
+      `${apiBaseUrl}/api/reference`,
       {
         params,
         headers: {
@@ -102,7 +108,7 @@ async function uploadReference() {
     const token = getToken();
 
     await axios.post(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference`,
+      `${apiBaseUrl}/api/reference`,
       formData,
       {
         headers: {
@@ -165,7 +171,7 @@ async function updateReference() {
 
     const token = getToken();
     await axios.patch(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference/${selectedReferenceId.value}`,
+      `${apiBaseUrl}/api/reference/${selectedReferenceId.value}`,
       formData,
       {
         headers: {
@@ -201,7 +207,7 @@ async function deleteReference() {
 
     const token = getToken();
     await axios.delete(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference/${selectedReferenceId.value}`,
+      `${apiBaseUrl}/api/reference/${selectedReferenceId.value}`,
       {
         headers: { Authorization: token ? `Bearer ${token}` : '' }
       }
@@ -227,7 +233,7 @@ async function downloadItem(item) {
   try {
     const token = getToken();
     const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/reference/${item.id}/download`,
+      `${apiBaseUrl}/api/reference/${item.id}/download`,
       {
         responseType: 'blob',
         headers: {

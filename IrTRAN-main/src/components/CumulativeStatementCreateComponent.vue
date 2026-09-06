@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useListsStore } from "@/stores/main";
 import { useTrainingSimulatorContext } from "@/composables/useTrainingSimulatorContext";
+import { useAiDocumentContext } from "@/composables/useAiDocumentContext";
 import TrainingScenarioPanel from "@/components/training/TrainingScenarioPanel.vue";
 import { validateTrainingDocument } from "@/helpers/trainingDocumentValidators";
 import { updateTitle } from "@/helpers/headerHelper";
@@ -56,6 +57,7 @@ function getDefaultDocument() {
 }
 
 const document = ref(getDefaultDocument());
+useAiDocumentContext("cumulative_statement", document, { source: "student", label: "Накопительная ведомость" });
 
 function emptyFeeRow() {
     return {

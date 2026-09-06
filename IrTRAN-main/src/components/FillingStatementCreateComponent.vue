@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useListsStore } from "@/stores/main";
 import { useTrainingSimulatorContext } from "@/composables/useTrainingSimulatorContext";
+import { useAiDocumentContext } from "@/composables/useAiDocumentContext";
 import TrainingScenarioPanel from "@/components/training/TrainingScenarioPanel.vue";
 import { validateTrainingDocument } from "@/helpers/trainingDocumentValidators";
 import { updateTitle } from "@/helpers/headerHelper";
@@ -210,6 +211,11 @@ function normalizeFilling(raw) {
 }
 
 const document = ref(getDefaultDocument());
+useAiDocumentContext("filling_statement", document, {
+    source: "student",
+    label: "Ведомость подачи и уборки",
+    currentStep: () => activeTab.value === "document" ? "Заполнение ведомости" : "Дополнительные расчёты",
+});
 
 const selClean = ref([]);
 const selWagon = ref([]);

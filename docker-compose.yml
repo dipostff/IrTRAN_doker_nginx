@@ -122,6 +122,38 @@ services:
     networks:
       - app-network
 
+  # Spring AI сервис учебного ИИ-наставника.
+  # Ключ хранится только в окружении и не попадает во frontend bundle.
+  ai:
+    build:
+      context: ./ai-irtran
+      dockerfile: Dockerfile
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-irtran}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Irkutsk
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-irtran}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-irtran}
+      # Непустой sentinel позволяет сервису подняться и показать status=not configured,
+      # пока администратор ещё не добавил настоящий ключ.
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-not-configured}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-flash}
+      AI_ENABLED: ${AI_ENABLED:-true}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost/auth/realms/master}
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/auth/realms/${KEYCLOAK_REALM:-master}/protocol/openid-connect/certs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081'"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
   # Фронт в режиме production (собранный Vite).
   # После git pull выполните: docker compose build --no-cache frontend && docker compose up -d nginx
   frontend:
@@ -130,6 +162,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-}
+        VITE_AI_API_URL: ${VITE_AI_API_URL:-}
         VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost/auth}
         VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-master}
         VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-irtran-client}
@@ -137,6 +170,7 @@ services:
         BUILD_DATE: ${BUILD_DATE:-}
     depends_on:
       - backend
+      - ai
     networks:
       - app-network
 
@@ -150,6 +184,8 @@ services:
       frontend:
         condition: service_started
       backend:
+        condition: service_started
+      ai:
         condition: service_started
       keycloak:
         condition: service_healthy

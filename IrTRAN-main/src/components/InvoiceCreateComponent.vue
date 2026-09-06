@@ -3,6 +3,7 @@ import { ref, computed, onMounted, nextTick, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useListsStore } from "@/stores/main";
 import { useTrainingSimulatorContext } from "@/composables/useTrainingSimulatorContext";
+import { useAiDocumentContext } from "@/composables/useAiDocumentContext";
 import TrainingScenarioPanel from "@/components/training/TrainingScenarioPanel.vue";
 import { validateTrainingDocument } from "@/helpers/trainingDocumentValidators";
 import { updateTitle } from "@/helpers/headerHelper";
@@ -96,6 +97,7 @@ function getDefaultDocument() {
 
 // Состояние документа накладной (сохранение в localStorage до появления API)
 const document = ref(getDefaultDocument());
+useAiDocumentContext("invoice", document, { source: "student", label: "Накладная" });
 
 // Типы накладной — статичный справочник
 const invoiceTypeOptions = [

@@ -7,8 +7,11 @@ const runtimeOrigin =
         ? window.location.origin
         : "";
 const baseUrl = (import.meta.env.VITE_API_URL || runtimeOrigin).replace(/\/$/, "");
+const aiBaseUrl = (import.meta.env.VITE_AI_API_URL || baseUrl).replace(/\/$/, "");
 const host = baseUrl.replace(/^https?:\/\//, ""); // имя или ip хоста api для sendRequest
-const listsStore = useListsStore();
+// API.js загружается до app.use(pinia), поэтому store нельзя создавать на уровне модуля.
+// Получаем активный экземпляр только в момент выполнения API-функции.
+const listsStore = () => useListsStore();
 
 // Create axios instance with interceptor for adding token
 const apiClient = axios.create();
@@ -53,7 +56,7 @@ export async function getDocumentTypes() {
 
     let response = await sendRequest(baseUrl + '/document_types', request);
 
-    listsStore.document_types = processingArray(response);
+    listsStore().document_types = processingArray(response);
 }
 
 export async function getMessageTypes() {
@@ -64,7 +67,7 @@ export async function getMessageTypes() {
 
     let response = await sendRequest(baseUrl + '/message_types', request);
 
-    listsStore.message_types = processingArray(response);
+    listsStore().message_types = processingArray(response);
 }
 
 export async function getSignsSending() {
@@ -75,7 +78,7 @@ export async function getSignsSending() {
 
     let response = await sendRequest(baseUrl + '/signs_sending', request);
 
-    listsStore.signs_sending = processingArray(response);
+    listsStore().signs_sending = processingArray(response);
 }
 
 export async function getCountries() {
@@ -86,7 +89,7 @@ export async function getCountries() {
 
     let response = await sendRequest(baseUrl + '/countries', request);
 
-    listsStore.countries = processingArray(response);
+    listsStore().countries = processingArray(response);
 }
 
 export async function getLegalEntities() {
@@ -97,7 +100,7 @@ export async function getLegalEntities() {
 
     let response = await sendRequest(baseUrl + '/legal_entities', request);
 
-    listsStore.legal_entities = processingArray(response);
+    listsStore().legal_entities = processingArray(response);
 }
 
 export async function getOwnerships() {
@@ -108,7 +111,7 @@ export async function getOwnerships() {
 
     let response = await sendRequest(baseUrl + '/ownerships', request);
 
-    listsStore.ownerships = processingArray(response);
+    listsStore().ownerships = processingArray(response);
 }
 
 export async function getOwnersNonPublicRailway() {
@@ -119,7 +122,7 @@ export async function getOwnersNonPublicRailway() {
 
     let response = await sendRequest(baseUrl + '/owners_non_public_railway', request);
 
-    listsStore.owners_non_public_railway = processingArray(response);
+    listsStore().owners_non_public_railway = processingArray(response);
 }
 
 export async function getApprovalsWithOwner() {
@@ -130,7 +133,7 @@ export async function getApprovalsWithOwner() {
 
     let response = await sendRequest(baseUrl + '/approvals_with_owner', request);
 
-    listsStore.approvals_with_owner = processingArray(response);
+    listsStore().approvals_with_owner = processingArray(response);
 }
 
 export async function getCargoGroups() {
@@ -141,7 +144,7 @@ export async function getCargoGroups() {
 
     let response = await sendRequest(baseUrl + '/cargo_groups', request);
 
-    listsStore.cargo_groups = processingArray(response);
+    listsStore().cargo_groups = processingArray(response);
 }
 
 export async function getMethodsSubmission() {
@@ -152,7 +155,7 @@ export async function getMethodsSubmission() {
 
     let response = await sendRequest(baseUrl + '/methods_submission', request);
 
-    listsStore.methods_submission = processingArray(response);
+    listsStore().methods_submission = processingArray(response);
 }
 
 export async function getStations() {
@@ -163,7 +166,7 @@ export async function getStations() {
 
     let response = await sendRequest(baseUrl + '/stations', request);
 
-    listsStore.stations = processingArray(response);
+    listsStore().stations = processingArray(response);
 }
 
 export async function getSendings() {
@@ -174,7 +177,7 @@ export async function getSendings() {
 
     let response = await sendRequest(baseUrl + '/sending', request);
 
-    listsStore.sendings = processingArray(response);
+    listsStore().sendings = processingArray(response);
 }
 
 export async function getCargos() {
@@ -185,7 +188,7 @@ export async function getCargos() {
 
     let response = await sendRequest(baseUrl + '/cargo', request);
 
-    listsStore.cargos = processingArray(response);
+    listsStore().cargos = processingArray(response);
 }
 
 export async function getTransportPackageTypes() {
@@ -196,7 +199,7 @@ export async function getTransportPackageTypes() {
 
     let response = await sendRequest(baseUrl + '/transport_package_types', request);
 
-    listsStore.transport_package_types = processingArray(response);
+    listsStore().transport_package_types = processingArray(response);
 }
 
 export async function getRollingStockTypes() {
@@ -207,7 +210,7 @@ export async function getRollingStockTypes() {
 
     let response = await sendRequest(baseUrl + '/rolling_stock_types', request);
 
-    listsStore.rolling_stock_types = processingArray(response);
+    listsStore().rolling_stock_types = processingArray(response);
 }
 
 export async function getContracts() {
@@ -218,7 +221,7 @@ export async function getContracts() {
 
     let response = await sendRequest(baseUrl + '/contracts', request);
 
-    listsStore.contracts = processingArray(response);
+    listsStore().contracts = processingArray(response);
 }
 
 export async function getDestinationIndications() {
@@ -229,7 +232,7 @@ export async function getDestinationIndications() {
 
     let response = await sendRequest(baseUrl + '/destination_indications', request);
 
-    listsStore.destination_indications = processingArray(response);
+    listsStore().destination_indications = processingArray(response);
 }
 
 export async function getSubmissionSchedules() {
@@ -240,7 +243,7 @@ export async function getSubmissionSchedules() {
 
     let response = await sendRequest(baseUrl + '/submission_schedules', request);
 
-    listsStore.submission_schedules = processingArray(response);
+    listsStore().submission_schedules = processingArray(response);
 }
 
 export async function getSendNumbers() {
@@ -251,7 +254,7 @@ export async function getSendNumbers() {
 
     let response = await sendRequest(baseUrl + '/send_numbers', request);
 
-    listsStore.send_numbers = processingArray(response);
+    listsStore().send_numbers = processingArray(response);
 }
 
 export async function getPayers() {
@@ -262,7 +265,7 @@ export async function getPayers() {
 
     let response = await sendRequest(baseUrl + '/payers', request);
 
-    listsStore.payers = processingArray(response);
+    listsStore().payers = processingArray(response);
 }
 
 export async function getPayerTypes() {
@@ -273,7 +276,7 @@ export async function getPayerTypes() {
 
     let response = await sendRequest(baseUrl + '/payer_types', request);
 
-    listsStore.payer_types = processingArray(response);
+    listsStore().payer_types = processingArray(response);
 }
 
 // Ограничения допустимых грузов/групп по узлу/станции.
@@ -306,7 +309,7 @@ export async function getSendTypes() {
 
     let response = await sendRequest(baseUrl + '/send_types', request);
 
-    listsStore.send_types = processingArray(response);
+    listsStore().send_types = processingArray(response);
 }
 
 export async function getSpeedTypes() {
@@ -317,17 +320,17 @@ export async function getSpeedTypes() {
 
     let response = await sendRequest(baseUrl + '/speed_types', request);
 
-    listsStore.speed_types = processingArray(response);
+    listsStore().speed_types = processingArray(response);
 }
 
 export async function getTransportations() {
     try {
         const response = await apiClient.get(baseUrl + '/api/requests_transportation');
         const data = Array.isArray(response.data) ? response.data : [];
-        listsStore.transportations = processingArray(data);
+        listsStore().transportations = processingArray(data);
     } catch (e) {
         if (e.response?.status === 401) throw e;
-        listsStore.transportations = {};
+        listsStore().transportations = {};
     }
 }
 
@@ -644,6 +647,115 @@ export async function postBeginnerSessionEnd(sessionId) {
 
 export async function postReferenceMaterialView(documentId) {
   await apiClient.post(`${baseUrl}/api/student/reference-views/${documentId}`);
+}
+
+//--------------------------------------------------
+// ИИ-наставник Spring AI
+//--------------------------------------------------
+
+export async function getAiStatus() {
+  const response = await apiClient.get(`${aiBaseUrl}/api/ai/status`);
+  return response.data;
+}
+
+export async function sendAiMessage(payload) {
+  const response = await apiClient.post(`${aiBaseUrl}/api/ai/chat`, payload);
+  return response.data;
+}
+
+/**
+ * Читает POST SSE-поток. Нативный EventSource не подходит, потому что запросу
+ * нужны JSON-тело и Bearer-токен.
+ */
+export async function streamAiMessage(payload, handlers = {}, signal) {
+  await updateToken(30);
+  const token = getToken();
+  const response = await fetch(`${aiBaseUrl}/api/ai/chat/stream`, {
+    method: "POST",
+    headers: {
+      Accept: "text/event-stream",
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (_) {
+      data = { message: `Ошибка сервера: ${response.status}` };
+    }
+    const error = new Error(data.message || `Ошибка сервера: ${response.status}`);
+    error.response = { status: response.status, data };
+    throw error;
+  }
+  if (!response.body) throw new Error("Браузер не получил поток ответа");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let streamCompleted = false;
+
+  const dispatch = (frame) => {
+    if (!frame.trim()) return;
+    let eventName = "message";
+    const dataLines = [];
+    for (const line of frame.split(/\r?\n/)) {
+      if (!line || line.startsWith(":")) continue;
+      const separator = line.indexOf(":");
+      const field = separator < 0 ? line : line.slice(0, separator);
+      const value = separator < 0 ? "" : line.slice(separator + 1).replace(/^ /, "");
+      if (field === "event") eventName = value;
+      if (field === "data") dataLines.push(value);
+    }
+
+    const rawData = dataLines.join("\n");
+    let data = rawData;
+    try {
+      data = rawData ? JSON.parse(rawData) : {};
+    } catch (_) {
+      // Строковые data-события тоже допустимы.
+    }
+
+    if (eventName === "error") {
+      const error = new Error(data?.message || "Ошибка потокового ответа");
+      error.response = { data: typeof data === "object" ? data : { message: data } };
+      throw error;
+    }
+    if (eventName === "meta") handlers.onMeta?.(data);
+    else if (eventName === "token") handlers.onToken?.(data?.content ?? data);
+    else if (eventName === "done") {
+      streamCompleted = true;
+      handlers.onDone?.(data);
+    }
+    else handlers.onMessage?.(data);
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    let boundary = /\r?\n\r?\n/.exec(buffer);
+    while (boundary) {
+      dispatch(buffer.slice(0, boundary.index));
+      buffer = buffer.slice(boundary.index + boundary[0].length);
+      boundary = /\r?\n\r?\n/.exec(buffer);
+    }
+    if (done) break;
+  }
+  if (buffer.trim()) dispatch(buffer);
+  if (!streamCompleted) throw new Error("Поток ответа IrtranAi был прерван");
+}
+
+export async function validateAiDocument(payload) {
+  const response = await apiClient.post(`${aiBaseUrl}/api/ai/validate`, payload);
+  return response.data;
+}
+
+export async function resetAiSession(sessionId) {
+  await apiClient.delete(`${aiBaseUrl}/api/ai/sessions/${encodeURIComponent(sessionId)}`);
 }
 
 //--------------------------------------------------

@@ -15,6 +15,7 @@ import { useRoute } from "vue-router";
 import { Transporation } from "@/models/transporation";
 import { useListsStore } from "@/stores/main";
 import { useTrainingSimulatorContext } from "@/composables/useTrainingSimulatorContext";
+import { useAiDocumentContext } from "@/composables/useAiDocumentContext";
 import SendingCompanent from "@/components/SendingCompanent.vue";
 import TrainingScenarioPanel from "@/components/training/TrainingScenarioPanel.vue";
 import { COUNTRY_SELECT_FIELDS } from "@/config/formFieldLabels";
@@ -25,6 +26,10 @@ const { trainingContext } = useTrainingSimulatorContext();
 
 const route = useRoute();
 const document = ref(Transporation.getDefaultDocument());
+useAiDocumentContext("transportation_request", document, {
+    source: "transportation",
+    label: "Заявка на грузоперевозку",
+});
 const selectedPayerId = ref(null);
 const saveError = ref(null);
 const selectedSendingIds = ref([]);
