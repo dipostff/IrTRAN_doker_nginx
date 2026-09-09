@@ -16,6 +16,25 @@ let isInitialized = false;
 let isInitializing = false;
 
 /**
+ * Redirect URI без hash. Иначе после OIDC-редиректа href содержит #state=...#code=...,
+ * Keycloak отвечает 400 «Неверный параметр: redirect_uri».
+ */
+function getCleanRedirectUri() {
+  const { origin, pathname, search } = window.location;
+  return `${origin}${pathname}${search || ''}`;
+}
+
+/** Убрать остатки OIDC из адресной строки после успешного входа. */
+function clearOidcHashFromUrl() {
+  const hash = window.location.hash || '';
+  if (!hash || !/(^#|&)(state|session_state|code|iss)=/.test(hash)) {
+    return;
+  }
+  const clean = `${window.location.pathname}${window.location.search || ''}`;
+  window.history.replaceState(null, document.title, clean);
+}
+
+/**
  * Initialize Keycloak and return a promise
  */
 export function initKeycloak() {
@@ -34,7 +53,7 @@ export function initKeycloak() {
         .init({
           onLoad: 'check-sso',
           pkceMethod: 'S256',
-          redirectUri: window.location.href,
+          redirectUri: getCleanRedirectUri(),
           checkLoginIframe: false,
           enableLogging: false,
           /**
@@ -48,6 +67,7 @@ export function initKeycloak() {
         .then((authenticated) => {
           isInitialized = true;
           isInitializing = false;
+          clearOidcHashFromUrl();
           if (authenticated) {
             console.log('User is authenticated');
             setInterval(() => {
@@ -84,7 +104,7 @@ export function initKeycloak() {
  */
 export function login() {
   return keycloak.login({
-    redirectUri: window.location.origin + '/menu'
+    redirectUri: `${window.location.origin}/menu`
   });
 }
 
