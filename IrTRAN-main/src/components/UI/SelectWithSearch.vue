@@ -114,7 +114,7 @@ export default {
 <template>
     <label class="col-auto col-form-label mb-0" :class="{ label_custom: fixWidth, required: req }" :style="styleLabel">{{ title }}</label>
     <div class="col-auto">
-        <div class="dropdown" style="width: 270px" v-click-outside="closeDropdown">
+        <div class="dropdown select-search-dropdown" style="width: 270px" v-click-outside="closeDropdown">
             <div class="input-group">
                 <input type="text" class="form-control custom-search" placeholder="Поиск..." aria-label="Введите..." v-model="searchQueries" @input="getFilteredItems" @focus="getFilteredItems" :style="styleInput" />
                 <button
@@ -129,7 +129,7 @@ export default {
                 </button>
             </div>
             <!-- Выпадающий список подсказок -->
-            <ul v-if="dropdownIsOpen && filteredItems?.length" class="dropdown-menu show" style="width: 270px; max-height: 200px; overflow-y: scroll; overflow-x: hidden">
+            <ul v-if="dropdownIsOpen && filteredItems?.length" class="dropdown-menu show select-search-menu" style="width: 270px; max-height: 200px; overflow-y: scroll; overflow-x: hidden">
                 <li v-for="(item, index) in filteredItems" :key="item[valueKey]" @click="changeOption(item[valueKey], item[name])">
                     <a class="dropdown-item">{{ item[name] }}</a>
                 </li>
@@ -244,5 +244,24 @@ export default {
 .modal {
     top: 20px;
     overflow: inherit;
+}
+
+@media (max-width: 767.98px) {
+    .label_custom {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .select-search-dropdown,
+    .select-search-menu,
+    .dropdown-item {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .form-control {
+        width: 100%;
+        max-width: 100%;
+    }
 }
 </style>

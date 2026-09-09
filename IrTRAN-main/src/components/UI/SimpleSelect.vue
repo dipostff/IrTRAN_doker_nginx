@@ -89,4 +89,17 @@ input[disabled] {
     width: 270px;
     border: 1px solid #c1c1c1;
 }
+
+@media (max-width: 767.98px) {
+    .label_custom {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    input[disabled],
+    .custom-input {
+        width: 100%;
+        max-width: 100%;
+    }
+}
 </style>

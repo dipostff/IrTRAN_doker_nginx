@@ -7,6 +7,9 @@ import {
   getActiveAiDocumentContext,
 } from "@/composables/useAiDocumentContext";
 import { getAiStatus, resetAiSession, streamAiMessage } from "@/helpers/API";
+import mascotLisUrl from "@/assets/mascot-lis.png";
+
+const assistantName = "Лис";
 
 const isOpen = ref(false);
 const isExpanded = ref(false);
@@ -310,7 +313,7 @@ async function submit(text = input.value) {
     );
 
     flushChunks();
-    if (!streamedMessage?.text.trim()) throw new Error("IrtranAi вернул пустой ответ");
+    if (!streamedMessage?.text.trim()) throw new Error(`${assistantName} вернул пустой ответ`);
     streamedMessage.issues = streamMetadata.validationIssues;
     streamedMessage.sources = streamMetadata.sources;
     serviceAvailable.value = true;
@@ -331,7 +334,7 @@ async function submit(text = input.value) {
     const code = error.response?.data?.error;
     const errorText = error.response?.data?.message
       || (code === "ai_not_configured"
-        ? "IrtranAi пока не настроен. Администратору нужно добавить API-ключ провайдера."
+        ? `${assistantName} пока не настроен. Администратору нужно добавить API-ключ провайдера.`
         : "Не удалось связаться с ИИ-помощником. Попробуйте ещё раз через минуту.");
     serviceAvailable.value = false;
     addMessage("error", errorText);
@@ -389,7 +392,7 @@ loadMessages();
       <section v-if="isOpen" class="ai-panel" role="dialog" aria-label="ИИ-наставник">
         <header class="ai-header">
           <div class="ai-avatar" aria-hidden="true">
-            <font-awesome-icon :icon="['fas', 'robot']" />
+            <img :src="mascotLisUrl" alt="" class="ai-mascot" />
           </div>
           <div class="ai-heading">
             <div class="ai-eyebrow">ИИ-наставник</div>
@@ -419,7 +422,7 @@ loadMessages();
         <div class="ai-service-state" :class="{ offline: !serviceAvailable }">
           <span class="state-dot" />
           {{ serviceAvailable
-            ? `IrtranAi · ${context ? "контекст формы подключён" : "общая консультация"}`
+            ? `${assistantName} · ${context ? "контекст формы подключён" : "общая консультация"}`
             : "Сервис ожидает настройки или недоступен" }}
         </div>
 
@@ -433,9 +436,9 @@ loadMessages();
         >
           <article v-for="message in messages" :key="message.id" class="ai-message" :class="message.role">
             <div class="message-label">
-              {{ message.role === "user" ? "Вы" : message.role === "error" ? "Система" : "Наставник" }}
+              {{ message.role === "user" ? "Вы" : message.role === "error" ? "Система" : assistantName }}
             </div>
-            <div v-if="message.streaming" class="message-text stream-text" aria-label="IrtranAi печатает ответ">
+            <div v-if="message.streaming" class="message-text stream-text" :aria-label="`${assistantName} печатает ответ`">
               <template v-for="token in message.tokens" :key="token.id">
                 <br v-if="token.lineBreak" />
                 <span v-else class="stream-token" :style="{ '--wave-offset': token.waveOffset }">{{ token.text }}</span>
@@ -463,7 +466,7 @@ loadMessages();
               </router-link>
             </div>
           </article>
-          <article v-if="isSending && isAwaitingFirstToken" class="ai-message assistant typing" aria-label="Наставник отвечает">
+          <article v-if="isSending && isAwaitingFirstToken" class="ai-message assistant typing" :aria-label="`${assistantName} отвечает`">
             <span /><span /><span />
           </article>
         </div>
@@ -499,7 +502,9 @@ loadMessages();
       @click="openAssistant"
     >
       <span class="launcher-glow" />
-      <span class="launcher-icon"><font-awesome-icon :icon="['fas', 'robot']" /></span>
+      <span class="launcher-icon">
+        <img :src="mascotLisUrl" alt="" class="ai-mascot" />
+      </span>
       <span class="launcher-copy">
         <strong>ИИ-наставник</strong>
         <small>{{ context ? "Вижу открытую форму" : "Готов помочь" }}</small>
@@ -542,7 +547,8 @@ loadMessages();
 .ai-launcher:hover { transform: translateY(-2px); box-shadow: 0 22px 52px rgba(53, 111, 229, 0.42); }
 .ai-launcher:focus-visible { outline: 3px solid rgba(53, 111, 229, .25); outline-offset: 4px; }
 .launcher-glow { position: absolute; inset: -80% 30% auto -30%; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,.22); filter: blur(18px); }
-.launcher-icon { position: relative; width: 42px; height: 42px; flex: 0 0 42px; border-radius: 15px; display: grid; place-items: center; background: rgba(255,255,255,.18); font-size: 18px; }
+.launcher-icon { position: relative; width: 42px; height: 42px; flex: 0 0 42px; border-radius: 15px; display: grid; place-items: center; background: rgba(255,255,255,.18); font-size: 18px; overflow: hidden; }
+.ai-mascot { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
 .launcher-copy { position: relative; display: grid; text-align: left; line-height: 1.15; }
 .launcher-copy strong { font-size: 14px; font-weight: 800; letter-spacing: .01em; }
 .launcher-copy small { margin-top: 4px; color: rgba(255,255,255,.78); font-size: 11px; font-weight: 600; }
@@ -567,7 +573,7 @@ loadMessages();
 }
 
 .ai-header { padding: 17px 16px 15px; display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 11px; background: linear-gradient(145deg, #1f3158 0%, #273f73 52%, #4b3d80 100%); color: white; }
-.ai-avatar { width: 46px; height: 46px; border-radius: 16px; display: grid; place-items: center; background: linear-gradient(145deg, rgba(255,255,255,.24), rgba(255,255,255,.1)); border: 1px solid rgba(255,255,255,.22); font-size: 18px; }
+.ai-avatar { width: 46px; height: 46px; border-radius: 16px; display: grid; place-items: center; background: linear-gradient(145deg, rgba(255,255,255,.24), rgba(255,255,255,.1)); border: 1px solid rgba(255,255,255,.22); font-size: 18px; overflow: hidden; padding: 0; }
 .ai-heading { min-width: 0; }
 .ai-eyebrow { color: #bdcdfa; font-size: 10px; line-height: 1.1; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .ai-title { margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; line-height: 1.2; font-weight: 800; }
@@ -650,12 +656,25 @@ loadMessages();
 .assistant-panel-enter-from, .assistant-panel-leave-to { opacity: 0; transform: translateY(12px) scale(.97); }
 
 @media (max-width: 600px) {
-  .ai-assistant { right: 12px; bottom: 12px; }
-  .ai-panel { width: calc(100vw - 24px); height: min(720px, calc(100vh - 24px)); border-radius: 22px; }
-  .ai-assistant.expanded .ai-panel { width: calc(100vw - 24px); height: calc(100vh - 24px); }
+  .ai-assistant {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .ai-panel {
+    width: calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    height: min(720px, calc(100vh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+    border-radius: 22px;
+    max-width: 100%;
+  }
+  .ai-assistant.expanded .ai-panel {
+    width: calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    height: calc(100vh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
   .expand-button { display: none; }
   .ai-launcher { min-width: 62px; width: 62px; padding: 10px; border-radius: 21px; }
   .launcher-copy { display: none; }
+  .ai-header { gap: 8px; padding: 12px; }
+  .ai-composer { margin: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

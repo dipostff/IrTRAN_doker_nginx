@@ -1,0 +1,161 @@
+/**
+ * Адаптив только для смартфонов.
+ * Все правила внутри max-width — десктопные стили не меняются.
+ * Breakpoint согласован с Menu/Auth: ~768px и уже.
+ */
+
+@media (max-width: 767.98px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  #app {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Контент под фиксированной шапкой */
+  body {
+    padding-top: 50px;
+  }
+
+  /* Bootstrap-ряды: колонки на всю ширину, без горизонтального сжатия */
+  .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    row-gap: 8px;
+  }
+
+  .row > [class*="col-"],
+  .col-auto,
+  .col-form-label {
+    flex: 0 0 100%;
+    max-width: 100%;
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Поля форм: сбрасываем жёсткие inline width (500–870px) */
+  input.form-control,
+  select.form-control,
+  textarea.form-control,
+  .form-select,
+  .input-group,
+  input.form-control[style*="width"],
+  select.form-control[style*="width"],
+  textarea.form-control[style*="width"] {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  /* Типовые панели форм заявок / накладных */
+  .search-box {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0;
+    padding: 8px 12px !important;
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .content-container {
+    padding: 110px 12px 96px !important;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .btn-box {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    padding: 8px 12px !important;
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-start;
+  }
+
+  .btn-custom,
+  .btn-box .btn {
+    margin: 2px 0 !important;
+  }
+
+  /* Вкладки — горизонтальный скролл без ломания десктопа */
+  .nav-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
+  }
+
+  .nav-tabs .nav-link {
+    white-space: nowrap;
+  }
+
+  /* Таблицы */
+  .table-responsive {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    max-width: none;
+  }
+
+  /* Модалки Bootstrap */
+  .modal-dialog {
+    margin: 0.5rem auto;
+    max-width: calc(100vw - 1rem);
+  }
+
+  .modal-body {
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Карточки / контейнеры */
+  .container,
+  .container-fluid {
+    padding-left: 12px;
+    padding-right: 12px;
+    max-width: 100%;
+  }
+
+  /* Safe area (вырезы iPhone) */
+  .ai-assistant {
+    right: max(12px, env(safe-area-inset-right)) !important;
+    bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Очень узкие экраны: ещё плотнее отступы */
+@media (max-width: 399.98px) {
+  .content-container {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .search-box,
+  .btn-box {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+}

@@ -94,4 +94,33 @@ a {
 body {
     padding-top: 50px; /* Отступ сверху для контента, чтобы не перекрывался шапкой */
 }
+
+/* Только смартфоны — десктопные отступы шапки не трогаем */
+@media (max-width: 767.98px) {
+    .header {
+        padding: 0 8px;
+        gap: 6px;
+    }
+    .header .logo,
+    .header .btn-logout {
+        margin-left: 6px;
+    }
+    .header .title {
+        min-width: 0;
+        padding: 0 4px;
+    }
+    .header .title h5 {
+        font-size: 13px;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .header .title span {
+        display: none;
+    }
+    .dropdown {
+        display: none;
+    }
+}
 </style>

@@ -746,7 +746,7 @@ export async function streamAiMessage(payload, handlers = {}, signal) {
     if (done) break;
   }
   if (buffer.trim()) dispatch(buffer);
-  if (!streamCompleted) throw new Error("Поток ответа IrtranAi был прерван");
+  if (!streamCompleted) throw new Error("Поток ответа Лис был прерван");
 }
 
 export async function validateAiDocument(payload) {
