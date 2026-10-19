@@ -331,8 +331,10 @@ onBeforeUnmount(() => {
     <section id="ai-tutor" class="ai-section">
       <div class="ai-grid section-shell">
         <div class="ai-copy" data-reveal>
-          <div class="ai-label"><span><img :src="mascotLis" alt="" /></span> Следующий этап развития</div>
-          <h2>ИИ-тьютор,<br /><em>обученный на данных от РЖД</em></h2>
+          <div class="ai-label"><span><img :src="mascotLis" alt="" /></span> Помощник Лис</div>
+          <h2>ИИ-тьютор,<br />
+            <em>ваш наставник<br />в обучении</em>
+          </h2>
           <p class="ai-lead">
             Персональный наставник внутри тренажёра: объясняет сложное простыми словами,
             помогает отработать слабые места и сопровождает обучение в собственном темпе студента.
@@ -342,7 +344,7 @@ onBeforeUnmount(() => {
             <div><i>02</i><span><strong>Разбирает ошибки</strong><small>Объясняет логику и возвращает к нужному материалу</small></span></div>
             <div><i>03</i><span><strong>Строит персональный маршрут</strong><small>Подсказывает порядок заполнения и ведёт по документу шаг за шагом</small></span></div>
           </div>
-          <p class="roadmap-note"><span></span>Функциональность находится в плане развития продукта</p>
+          <p class="roadmap-note"><span></span>Функциональность развивается и дополняется</p>
         </div>
 
         <div class="ai-visual" data-reveal style="--delay: .15s">
@@ -359,7 +361,7 @@ onBeforeUnmount(() => {
             </div>
             <div class="chat-input"><span>Ваш вопрос...</span><button aria-label="Отправить пример сообщения">↑</button></div>
           </div>
-          <span class="ai-float ai-float-one">Контекст РЖД</span>
+          <span class="ai-float ai-float-one">Контекст</span>
           <span class="ai-float ai-float-two">Адаптивные тесты</span>
           <span class="ai-float ai-float-three">24 / 7</span>
           <span class="ai-float ai-float-four">Проверка в реальном времени</span>
