@@ -1,15 +1,26 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { isAuthenticated, initKeycloak, isPureStudentAccount, isStudent, isAppAdmin } from "@/helpers/keycloak";
 
+// Публичный лендинг не должен обращаться к Keycloak или ждать его доступности.
+const isPublicFlyerEntry = window.location.pathname.replace(/\/+$/, '') === '/flyer';
+
 // Initialize Keycloak once; router guard can await this without re-triggering init per navigation.
-const keycloakReady = initKeycloak().catch((e) => {
-    console.error('Keycloak initialization error (router module):', e);
-    return false;
-});
+const keycloakReady = isPublicFlyerEntry
+    ? Promise.resolve(false)
+    : initKeycloak().catch((e) => {
+        console.error('Keycloak initialization error (router module):', e);
+        return false;
+    });
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     routes: [
+        {
+            path: "/flyer",
+            name: "flyer",
+            component: () => import("../views/FlyerView.vue"),
+            meta: { public: true },
+        },
         {
             path: "/", //Страница авторизации
             name: "authotrization",
@@ -310,6 +321,7 @@ const router = createRouter({
 });
 
 const PAGE_TITLE = {
+    flyer: "ОТРЭД — цифровой тренажёр транспортных документов",
     authotrization: "Авторизация",
     menu: "Тренажёр ОТРЭД главное меню",
     "transporation-menu": "Заявка на грузоперевозку",
@@ -333,6 +345,11 @@ const PAGE_TITLE = {
 
 // Navigation guard to protect routes
 router.beforeEach(async (to, from, next) => {
+    if (to.meta.public) {
+        next();
+        return;
+    }
+
     // Wait for Keycloak initialization without re-triggering it.
     const authenticated = await keycloakReady;
 

@@ -61,8 +61,13 @@ Keycloak может автоматически импортировать реа
    projirgups/keycloak-realm/
    ```
 
-2. Положите в него файл экспорта реалма с именем `realm.json` (или любым именем `*.json`).  
-   Например, переименуйте `irtran-realm.json` в `realm.json` или скопируйте в `keycloak-realm/realm.json`.
+2. Положите в него **полный экспорт realm**, используя имя `<realm>-realm.json`.
+   Для realm `master` это `master-realm.json`. Экспорт пользователей из CLI должен называться
+   `master-users-0.json`, `master-users-1.json` и т. д.
+
+   Не помещайте сюда отдельный экспорт клиента. Файл, начинающийся с поля `clientId`, не является
+   `RealmRepresentation`: при `--import-realm` Keycloak завершится с ошибкой
+   `Unrecognized field "clientId"`.
 
 3. В `docker-compose.yml` добавьте volume и измените команду keycloak:
 
@@ -70,7 +75,8 @@ Keycloak может автоматически импортировать реа
    keycloak:
      ...
      volumes:
-       - ./keycloak-realm:/opt/keycloak/data/import
+       - ./keycloak-realm/master-realm.json:/opt/keycloak/data/import/master-realm.json:ro
+       - ./keycloak-realm/master-users-0.json:/opt/keycloak/data/import/master-users-0.json:ro
      command: start-dev --import-realm
    ```
 
@@ -121,5 +127,5 @@ docker exec -it keycloak /opt/keycloak/bin/kc.sh import --file /tmp/irtran-realm
 |----------|------------------|
 | Экспорт из контейнера | `docker exec keycloak /opt/keycloak/bin/kc.sh export --realm master --dir /tmp/export --users skip` |
 | Скопировать экспорт на хост | `docker cp keycloak:/tmp/export/. ./keycloak-export/` |
-| Импорт при старте | Файл в `./keycloak-realm/realm.json` + в compose: volume на `/opt/keycloak/data/import` и `command: start-dev --import-realm` |
+| Импорт при старте | `<realm>-realm.json` и, при необходимости, `<realm>-users-N.json`; монтировать в `/opt/keycloak/data/import` только эти файлы |
 | Реалм в приложении | Переменная `KEYCLOAK_REALM` в `.env` (должна совпадать с именем реалма в Keycloak) |

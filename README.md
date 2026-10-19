@@ -208,6 +208,21 @@ docker-compose logs -f keycloak
 ```
 Реалм задаётся в `.env` (переменная `KEYCLOAK_REALM`, по умолчанию `master`). Импорт/экспорт реалма — см. [KEYCLOAK_REALM_IMPORT_EXPORT.md](./KEYCLOAK_REALM_IMPORT_EXPORT.md).
 
+Для HTTPS Nginx ожидает сертификат `app.otred.ru` в стандартном каталоге Let's Encrypt
+`/etc/letsencrypt/live/app.otred.ru/`. Compose публикует порт `443` и монтирует этот каталог.
+Если сертификаты или ACME webroot находятся в другом месте, укажите абсолютные пути в `.env`:
+
+```env
+LETSENCRYPT_DIR=/etc/letsencrypt
+CERTBOT_WEBROOT_DIR=/var/www/certbot
+NGINX_TLS_MODE=required
+```
+
+В `LETSENCRYPT_DIR/live/app.otred.ru/` должны существовать `fullchain.pem` и `privkey.pem`.
+Режим `required` рекомендуется для production: он не позволит незаметно запустить сайт без TLS.
+Значение по умолчанию `auto` включает HTTPS при наличии сертификата и HTTP-режим для локальной
+разработки, если сертификата нет.
+
 ### 2. Настройте Keycloak
 
 1. Откройте консоль администратора Keycloak: `http://localhost:8080`

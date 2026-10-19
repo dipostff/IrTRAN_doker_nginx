@@ -53,15 +53,21 @@ const watchdog = setTimeout(() => {
   mountAppOnce();
 }, KEYCLOAK_MOUNT_TIMEOUT_MS);
 
-initKeycloak()
-  .then((authenticated) => {
-    console.log('Keycloak initialized, authenticated:', authenticated);
-    mountAppOnce();
-  })
-  .catch((error) => {
-    console.error('Failed to initialize Keycloak:', error);
-    mountAppOnce();
-  })
-  .finally(() => {
-    clearTimeout(watchdog);
-  });
+// Публичный лендинг должен появляться сразу и не ждать ответа Keycloak.
+if (window.location.pathname.replace(/\/+$/, '') === '/flyer') {
+  clearTimeout(watchdog);
+  mountAppOnce();
+} else {
+  initKeycloak()
+    .then((authenticated) => {
+      console.log('Keycloak initialized, authenticated:', authenticated);
+      mountAppOnce();
+    })
+    .catch((error) => {
+      console.error('Failed to initialize Keycloak:', error);
+      mountAppOnce();
+    })
+    .finally(() => {
+      clearTimeout(watchdog);
+    });
+}

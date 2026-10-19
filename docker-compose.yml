@@ -23,7 +23,8 @@ services:
       retries: 5
 
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    # Не используем latest: непредсказуемое обновление образа может сломать импорт realm.
+    image: quay.io/keycloak/keycloak:26.5.6
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
@@ -42,8 +43,10 @@ services:
       KC_METRICS_ENABLED: "false"
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-master}
     volumes:
-      # Импорт реалма при старте: все *.json из keycloak-realm/ подхватываются Keycloak
-      - ./keycloak-realm:/opt/keycloak/data/import
+      # Монтируем только realm и его пользователей. Отдельный client JSON нельзя
+      # класть в import/: Keycloak читает его как RealmRepresentation и падает.
+      - ./keycloak-realm/master-realm.json:/opt/keycloak/data/import/master-realm.json:ro
+      - ./keycloak-realm/master-users-0.json:/opt/keycloak/data/import/master-users-0.json:ro
     command: start-dev --import-realm
     depends_on:
       postgres:
@@ -176,10 +179,21 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
+    environment:
+      # auto: HTTPS при наличии сертификата, иначе HTTP; required: без TLS не запускаться.
+      NGINX_TLS_MODE: ${NGINX_TLS_MODE:-auto}
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf:/opt/nginx/nginx.https.conf:ro
+      - ./nginx/nginx.http.conf:/opt/nginx/nginx.http.conf:ro
+      - ./nginx/start-nginx.sh:/opt/nginx/start-nginx.sh:ro
+      # На production-хосте сертификаты Let's Encrypt обычно находятся здесь.
+      # Пути можно переопределить в .env для другой ОС/раскладки каталогов.
+      - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+      - ${CERTBOT_WEBROOT_DIR:-/var/www/certbot}:/var/www/certbot:ro
+    command: ["/bin/sh", "/opt/nginx/start-nginx.sh"]
     depends_on:
       frontend:
         condition: service_started
