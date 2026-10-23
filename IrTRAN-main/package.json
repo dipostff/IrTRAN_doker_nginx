@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
@@ -16,12 +18,16 @@
     "@fortawesome/vue-fontawesome": "^3.0.8",
     "@mdi/font": "^7.4.47",
     "axios": "^1.8.1",
+    "chart.js": "^4.5.1",
     "dompurify": "^3.4.14",
+    "html-to-image": "^1.11.13",
     "keycloak-js": "^24.0.4",
     "marked": "^18.0.11",
     "pinia": "^3.0.1",
+    "survey-core": "2.5.10",
     "survey-vue3-ui": "^2.5.10",
     "vue": "^3.5.13",
+    "vue-chartjs": "^5.3.4",
     "vue-fontawesome": "^0.0.2",
     "vue-router": "^4.5.0",
     "vuetify": "^3.8.8",
@@ -32,6 +38,7 @@
     "vite": "^6.1.0",
     "vite-plugin-vue-devtools": "^7.7.2",
     "vite-plugin-vuetify": "^2.1.1",
+    "vitest": "^3.2.4",
     "vuetify": "^3.8.7"
   }
 }

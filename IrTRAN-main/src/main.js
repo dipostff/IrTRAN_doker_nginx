@@ -53,8 +53,9 @@ const watchdog = setTimeout(() => {
   mountAppOnce();
 }, KEYCLOAK_MOUNT_TIMEOUT_MS);
 
-// Публичный лендинг должен появляться сразу и не ждать ответа Keycloak.
-if (window.location.pathname.replace(/\/+$/, '') === '/flyer') {
+// Публичные страницы должны появляться сразу и не ждать ответа Keycloak.
+const publicEntryPaths = new Set(['/flyer', '/open-day']);
+if (publicEntryPaths.has(window.location.pathname.replace(/\/+$/, '') || '/')) {
   clearTimeout(watchdog);
   mountAppOnce();
 } else {

@@ -1,11 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { isAuthenticated, initKeycloak, isPureStudentAccount, isStudent, isAppAdmin } from "@/helpers/keycloak";
 
-// Публичный лендинг не должен обращаться к Keycloak или ждать его доступности.
-const isPublicFlyerEntry = window.location.pathname.replace(/\/+$/, '') === '/flyer';
+// Публичные страницы не должны обращаться к Keycloak или ждать его доступности.
+const PUBLIC_ENTRY_PATHS = new Set(['/flyer', '/open-day']);
+const isPublicEntry = PUBLIC_ENTRY_PATHS.has(window.location.pathname.replace(/\/+$/, '') || '/');
 
 // Initialize Keycloak once; router guard can await this without re-triggering init per navigation.
-const keycloakReady = isPublicFlyerEntry
+const keycloakReady = isPublicEntry
     ? Promise.resolve(false)
     : initKeycloak().catch((e) => {
         console.error('Keycloak initialization error (router module):', e);
@@ -20,6 +21,12 @@ const router = createRouter({
             name: "flyer",
             component: () => import("../views/FlyerView.vue"),
             meta: { public: true },
+        },
+        {
+            path: "/open-day",
+            name: "open-day",
+            component: () => import("../views/OpenDay/OpenDayView.vue"),
+            meta: { public: true, title: "Какое направление тебе больше подойдёт?" },
         },
         {
             path: "/", //Страница авторизации
@@ -322,6 +329,7 @@ const router = createRouter({
 
 const PAGE_TITLE = {
     flyer: "ОТРЭД — цифровой тренажёр транспортных документов",
+    "open-day": "Какое направление тебе больше подойдёт?",
     authotrization: "Авторизация",
     menu: "Тренажёр ОТРЭД главное меню",
     "transporation-menu": "Заявка на грузоперевозку",

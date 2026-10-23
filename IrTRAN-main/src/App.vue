@@ -4,7 +4,7 @@ import { RouterView, useRoute } from 'vue-router'
 import AiAssistant from '@/components/ai/AiAssistant.vue'
 
 const route = useRoute()
-const showAssistant = computed(() => route.name && !['authotrization', 'flyer'].includes(route.name))
+const showAssistant = computed(() => route.name && !['authotrization', 'flyer', 'open-day'].includes(route.name))
 </script>
 
 <template>
