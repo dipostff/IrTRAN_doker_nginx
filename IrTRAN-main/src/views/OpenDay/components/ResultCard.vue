@@ -16,7 +16,7 @@ const short = { pi: 'ПИ', is: 'ИС', bas: 'БАС', bi: 'БИ' };
 <template>
   <article class="result-card">
     <header class="card-head">
-      <span class="eyebrow"><span></span> День открытых дверей · кафедра ИСЗИ</span>
+      <span class="eyebrow"><span></span> День открытых дверей · УТИИТ · ИСИЗИ</span>
       <h3>
         <template v-if="isClose && secondKey">
           {{ short[topKey] }} <em>и</em> {{ short[secondKey] }}

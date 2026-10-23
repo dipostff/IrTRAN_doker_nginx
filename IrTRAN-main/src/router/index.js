@@ -300,6 +300,11 @@ const router = createRouter({
             component: () => import("../views/TeacherDashboardView.vue"),
         },
         {
+            path: "/open-day-stats",
+            name: "open-day-stats",
+            component: () => import("../views/OpenDayStatsView.vue"),
+        },
+        {
             path: "/document-review", // Проверка документов
             name: "document-review",
             component: () => import("../views/DocumentReviewView.vue"),
@@ -345,6 +350,7 @@ const PAGE_TITLE = {
     scenarios: "Тренажёр ОТРЭД - Сценарии",
     "admin-panel": "Тренажёр ОТРЭД - Панель управления",
     "teacher-dashboard": "Тренажёр ОТРЭД - Панель преподавателя",
+    "open-day-stats": "Тренажёр ОТРЭД - Статистика дня открытых дверей",
     "document-review": "Тренажёр ОТРЭД - Проверка документов",
     "document-review-manual": "Тренажёр ОТРЭД - Ручная проверка документа",
     "dictionary-module": "Тренажёр ОТРЭД - Заполнение справочников",

@@ -73,6 +73,13 @@ const CATEGORIES = [
         visible: () => isTeacherOrAdmin.value
       },
       {
+        to: '/open-day-stats',
+        title: 'Статистика дня открытых дверей',
+        subtitle: 'прохождения / направления',
+        icon: 'https://cdn-icons-png.flaticon.com/512/1828/1828919.png',
+        visible: () => isTeacherOrAdmin.value
+      },
+      {
         to: '/document-review',
         title: 'Проверка документов',
         subtitle: 'ручная / алгоритмическая',

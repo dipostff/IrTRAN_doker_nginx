@@ -2,9 +2,10 @@
 import { computed, nextTick, ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { toPng } from 'html-to-image';
-import logo from '@/assets/syspanellogo_2.png';
+import mascotLis from '@/assets/mascot-lis.png';
 import testData from '@/data/openDay/test.json';
 import { calcResult, pickQuestions } from '@/helpers/openDayScoring.js';
+import { trackOpenDayFinish, trackOpenDayStart } from '@/helpers/openDayAnalytics.js';
 import QuizStep from './components/QuizStep.vue';
 import ResultRadar from './components/ResultRadar.vue';
 import ResultCard from './components/ResultCard.vue';
@@ -63,6 +64,7 @@ function startQuiz() {
   questionIndex.value = 0;
   saveError.value = '';
   step.value = 'quiz';
+  trackOpenDayStart();
 }
 
 function selectAnswer(idx) {
@@ -78,6 +80,15 @@ function goNext() {
   if (selectedIdx.value == null) return;
   if (questionIndex.value >= questions.value.length - 1) {
     step.value = 'result';
+    const r = result.value;
+    trackOpenDayFinish({
+      top: r.top,
+      second: r.second,
+      low: r.low,
+      isClose: r.isClose,
+      percent: r.percent,
+      questionIds: questions.value.map((q) => q.id),
+    });
     return;
   }
   questionIndex.value += 1;
@@ -125,9 +136,9 @@ async function saveCard() {
 
     <header class="od-header">
       <RouterLink class="brand" to="/flyer">
-        <span class="brand-mark"><img :src="logo" alt="" /></span>
+        <span class="brand-mark"><img :src="mascotLis" alt="Лис, маскот кафедры" /></span>
         <span class="brand-copy">
-          <strong>Кафедра ИСЗИ</strong>
+          <strong>Факультет УТИИТ - Кафедра ИСИЗИ</strong>
           <small>день открытых дверей</small>
         </span>
       </RouterLink>
@@ -222,7 +233,10 @@ async function saveCard() {
   --cyan: #64e7ff;
   --lime: #c8ff57;
   --surface: #f4f7fb;
+  box-sizing: border-box;
   min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
   color: var(--ink);
   background:
     radial-gradient(circle at 12% 8%, rgba(25, 101, 255, 0.12), transparent 42%),
@@ -231,10 +245,21 @@ async function saveCard() {
   font-family: Inter, Manrope, 'Segoe UI', Arial, sans-serif;
 }
 
-:global(body:has(.open-day-page)) {
-  display: block;
+/* Убираем белую полосу сверху на мобильных: html/body/#app иначе остаются белыми */
+:global(html:has(.open-day-page)),
+:global(body:has(.open-day-page)),
+:global(#app:has(.open-day-page)) {
   margin: 0;
   background: #f4f7fb;
+}
+
+:global(body:has(.open-day-page)) {
+  display: block;
+  min-height: 100%;
+}
+
+:global(#app:has(.open-day-page)) {
+  min-height: 100%;
 }
 
 .bg-noise {
@@ -257,7 +282,7 @@ async function saveCard() {
 .od-header {
   width: min(920px, calc(100% - 28px));
   margin: 0 auto;
-  padding: 18px 0 8px;
+  padding: 14px 0 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -268,18 +293,20 @@ async function saveCard() {
   display: inline-flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
   color: inherit;
   text-decoration: none;
 }
 
 .brand-mark {
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
   overflow: hidden;
-  border-radius: 13px;
-  background: linear-gradient(145deg, #fff, #dbe8fb);
+  border-radius: 14px;
+  background: #0b0b0b;
   box-shadow: inset 0 0 0 1px rgba(21, 80, 160, 0.1);
 }
 
@@ -287,16 +314,19 @@ async function saveCard() {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center top;
 }
 
 .brand-copy {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .brand-copy strong {
-  font-size: 14px;
+  font-size: clamp(12px, 3.4vw, 14px);
   font-weight: 780;
+  line-height: 1.25;
 }
 
 .brand-copy small {
@@ -320,16 +350,16 @@ async function saveCard() {
 .shell {
   width: min(920px, calc(100% - 28px));
   margin: 0 auto;
-  padding: 12px 0 48px;
+  padding: 10px 0 48px;
 }
 
 .panel {
+  margin: 0;
   padding: clamp(22px, 4vw, 36px);
   border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.72);
+  background: #fff;
   box-shadow: 0 24px 60px rgba(12, 30, 60, 0.08);
-  backdrop-filter: blur(10px);
 }
 
 .eyebrow {

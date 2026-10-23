@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue';
+import { RouterLink } from 'vue-router';
 import axios from 'axios';
 import { getToken, isAppAdmin } from '@/helpers/keycloak';
 
@@ -273,6 +274,14 @@ onMounted(() => {
 
 <template>
   <div>
+    <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+      <div>
+        <strong>Статистика дня открытых дверей</strong>
+        <div class="small mb-0">Сколько прошли тест, какие направления лидируют, средние проценты.</div>
+      </div>
+      <RouterLink class="btn btn-sm btn-primary" to="/open-day-stats">Открыть статистику</RouterLink>
+    </div>
+
     <h4 class="mb-3">Управление пользователями</h4>
     <div class="card mb-4">
       <div class="card-body">

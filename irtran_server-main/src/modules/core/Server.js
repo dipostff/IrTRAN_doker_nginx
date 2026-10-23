@@ -21,6 +21,7 @@ const { registerDocumentReviewRoutes } = require('./../documents/documentReviewR
 const { registerBugReportsRoutes } = require('./../bugReports/bugReportsRoutes');
 const { registerStudentRoutes } = require('./../student/studentRoutes');
 const { registerNotificationsRoutes } = require('./../notifications/notificationsRoutes');
+const { registerOpenDayRoutes } = require('./../openDay/openDayRoutes');
 //-----------Подключаемые модули-----------//
 
 /**
@@ -142,6 +143,7 @@ class Server {
     registerBugReportsRoutes(this.app);
     registerStudentRoutes(this.app);
     registerNotificationsRoutes(this.app);
+    registerOpenDayRoutes(this.app);
   }
 
   /**
